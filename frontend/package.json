@@ -6,7 +6,9 @@
     "ng": "ng",
     "start": "ng serve",
     "build": "ng build",
-    "watch": "ng build --watch --configuration development"
+    "watch": "ng build --watch --configuration development",
+    "typecheck": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.spec.json --noEmit",
+    "test": "node -e \"require('fs').rmSync('out-tsc/spec',{recursive:true,force:true})\" && tsc -p tsconfig.spec.json && node --test \"out-tsc/spec/**/*.spec.js\""
   },
   "private": true,
   "dependencies": {
@@ -28,6 +30,7 @@
     "@angular-devkit/build-angular": "^18.2.0",
     "@angular/cli": "^18.2.0",
     "@angular/compiler-cli": "^18.2.0",
+    "@types/node": "^22.20.5",
     "typescript": "~5.5.2"
   }
 }

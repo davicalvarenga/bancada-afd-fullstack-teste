@@ -1,0 +1,13 @@
+/* Testes da lógica pura de GLC: compilados para CommonJS e rodados com o runner nativo do Node (node --test). */
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./out-tsc/spec",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "importHelpers": false,
+    "sourceMap": false,
+    "types": ["node"]
+  },
+  "include": ["src/app/domain/glc/**/*.ts"]
+}
