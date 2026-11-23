@@ -1,0 +1,175 @@
+<div class="page">
+  <header class="topbar">
+    <a class="iconbtn" routerLink="/" title="Voltar ao portal" aria-label="Voltar ao portal">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></svg>
+    </a>
+    <div class="brand mono">GLC</div>
+    <div class="where mono">transformações passo a passo</div>
+    <div class="spacer"></div>
+    <app-site-nav />
+    <button class="iconbtn" (click)="theme.toggle()" title="Alternar tema" aria-label="Alternar tema">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"></path></svg>
+    </button>
+  </header>
+
+  <div class="work">
+    <!-- ───────── GRAMÁTICA ───────── -->
+    <aside class="panel side">
+      <div class="ph"><span class="k mono">1</span><h2>Gramática</h2></div>
+
+      <label class="lab mono" for="glc-ex">Exemplo</label>
+      <select id="glc-ex" class="inp" (change)="selectExample($any($event.target).value)">
+        @for (gr of groups; track gr.label) {
+          <optgroup [label]="gr.label">
+            @for (ex of gr.items; track ex.id) { <option [value]="ex.id" [selected]="ex.id === example()?.id">{{ ex.label }}</option> }
+          </optgroup>
+        }
+        <option value="" [selected]="!example()">Personalizada (gramática editada)</option>
+      </select>
+      @if (example(); as ex) { <p class="hint">{{ ex.note }}</p> }
+
+      <label class="lab mono" for="glc-g">Regras (uma variável por linha)</label>
+      <app-sym-bar [target]="ta" [syms]="[{ s: 'ε', label: 'vazio' }, { s: '→' }]" [typed]="['eps', '&', '->']" />
+      <textarea #ta id="glc-g" class="inp code" rows="7" spellcheck="false" maxlength="4000" autocomplete="off"
+                [value]="grammarText()" (input)="editGrammar($any($event.target).value)"></textarea>
+      <p class="hint">
+        Neste módulo, <b>variável é letra maiúscula</b> com sufixos opcionais (<code>S'</code>, <code>A1</code>, <code>Xa</code>)
+        e <b>qualquer outro caractere é um terminal</b> (<code>a</code>, <code>+</code>, <code>(</code>, <code>¬</code>…).
+        É diferente das Derivações, onde variável é o que aparece à esquerda e <code>id</code> pode ser um terminal só.
+        A partida é a variável da 1ª linha.
+      </p>
+
+      @for (pr of parsed().problems; track $index) {
+        <div class="msg err">@if (pr.line) { <b class="mono">linha {{ pr.line }}</b> } {{ pr.message }}</div>
+      }
+      @for (note of parsed().notes; track $index) { <div class="msg warn">{{ note }}</div> }
+
+      @if (tuple(); as t) {
+        <dl class="tuple mono">
+          <dt>N</dt><dd>{{ t.n }}</dd>
+          <dt>T</dt><dd>{{ t.t }}</dd>
+          <dt>S</dt><dd>{{ t.s }}</dd>
+        </dl>
+      }
+    </aside>
+
+    <main class="main">
+      <!-- ───────── TRANSFORMAÇÃO ───────── -->
+      <section class="panel">
+        <div class="ph"><span class="k mono">2</span><h2>Transformação</h2></div>
+        <div class="kinds" role="group" aria-label="Transformação">
+          @for (t of transforms; track t.id) {
+            <button type="button" class="tbtn" [class.active]="t.id === kind()" [attr.aria-pressed]="t.id === kind()" (click)="kind.set(t.id)">{{ t.label }}</button>
+          }
+        </div>
+        <p class="hint">{{ info().summary }}</p>
+        <div class="opts">
+          @if (kind() === 'left-recursion') {
+            <label class="chk"><input type="checkbox" [checked]="epsFree()" (change)="epsFree.set($any($event.target).checked)" /> Versão sem ε (A → βA' | β, A' → αA' | α)</label>
+          }
+          @if (kind() === 'cnf' || kind() === 'gnf') {
+            <label class="chk"><input type="checkbox" [checked]="useless()" (change)="useless.set($any($event.target).checked)" /> Remover símbolos inúteis (etapa opcional)</label>
+          }
+          <label class="chk">Equivalência até n =
+            <input class="inp num" type="number" min="0" [max]="maxN" [value]="n()" (change)="setN($any($event.target).value)" aria-label="Comprimento máximo n" />
+          </label>
+        </div>
+      </section>
+
+      @if (run().error; as e) { <div class="msg err">Erro inesperado no motor: {{ e }}</div> }
+
+      @if (run().r; as r) {
+        <div aria-live="polite">
+          @for (w of r.warnings; track $index) { <div class="msg warn">{{ w }}</div> }
+        </div>
+
+        @if (!r.refused) {
+          <!-- ───────── PASSOS ───────── -->
+          <section class="panel">
+            <div class="ph"><span class="k mono">3</span><h2>Passo a passo</h2><span class="count mono">{{ steps().length }} passo(s)</span></div>
+            <ol class="steps">
+              @for (s of steps(); track $index; let i = $index) {
+                <li class="step" [class.hl]="s.highlight">
+                  <details open>
+                    <summary><span class="num mono">{{ i + 1 }}</span>{{ s.title }}</summary>
+                    @if (s.highlight; as h) { <div class="badge">★ {{ h }}</div> }
+                    <p class="expl">{{ s.explanation }}</p>
+                    @if (s.sets.length) {
+                      <dl class="sets">
+                        @for (x of s.sets; track $index) { <dt>{{ x.label }}</dt><dd class="mono">{{ x.text }}</dd> }
+                      </dl>
+                    }
+                    @for (w of s.warnings; track $index) { <div class="msg warn">{{ w }}</div> }
+                    <ul class="rules mono">
+                      @for (l of s.lines; track l.lhs) {
+                        <li>
+                          <b [class.newv]="l.isNew" [attr.title]="l.isNew ? 'variável criada neste passo' : null">{{ l.lhs }}</b> →
+                          @for (a of l.alts; track $index; let last = $last) {<span [class.add]="a.added">{{ a.text }}</span>@if (!last) { <span class="bar">|</span> }}
+                          @if (!l.alts.length) { <i class="none">sem produções</i> }
+                        </li>
+                      }
+                    </ul>
+                    @if (s.removed.length) {
+                      <ul class="rules mono del" aria-label="Produções removidas">
+                        @for (p of s.removed; track $index) { <li>{{ p }}</li> }
+                      </ul>
+                    }
+                  </details>
+                </li>
+              }
+            </ol>
+            <p class="legend"><span class="add">nova</span> produção nova · <b class="newv">X</b> variável criada · <span class="del-k">removida</span> produção que saiu</p>
+          </section>
+        }
+
+        <!-- ───────── RESULTADO E VERIFICAÇÕES ───────── -->
+        <section class="panel">
+          <div class="ph">
+            <span class="k mono">4</span><h2>{{ r.refused ? 'Gramática (sem alteração)' : 'Resultado' }}</h2>
+            <div class="spacer"></div>
+            @if (!r.refused && r.result.prods.length) { <button type="button" class="mini" (click)="useResult()">Usar como entrada</button> }
+          </div>
+          <ul class="rules mono">
+            @for (l of finalLines(); track l.lhs) {
+              <li><b>{{ l.lhs }}</b> → @for (a of l.alts; track $index; let last = $last) {<span>{{ a.text }}</span>@if (!last) { <span class="bar">|</span> }}
+                @if (!l.alts.length) { <i class="none">sem produções</i> }</li>
+            }
+          </ul>
+
+          @if (equivalence(); as eq) {
+            @if (eq.equivalent) {
+              <div class="msg ok"><b>Equivalentes até n = {{ eq.maxLen }}</b>: as duas gramáticas geram as mesmas {{ eq.countA }} palavra(s) de comprimento ≤ {{ eq.maxLen }}.</div>
+            } @else {
+              <div class="msg err"><b>Divergem até n = {{ eq.maxLen }}.</b>
+                @if (eq.onlyA.length) { <div>Só na entrada: <span class="mono">{{ words(eq.onlyA) }}</span></div> }
+                @if (eq.onlyB.length) { <div>Só no resultado: <span class="mono">{{ words(eq.onlyB) }}</span></div> }
+              </div>
+            }
+            @if (!eq.complete) { <div class="msg warn">Amostra incompleta: o teto de palavras foi atingido. Diminua n.</div> }
+          }
+
+          <table class="checks">
+            <thead><tr><th scope="col">Verificação</th><th scope="col">Entrada</th><th scope="col">Resultado</th></tr></thead>
+            <tbody>
+              @for (c of checks(); track c.label) {
+                <tr>
+                  <th scope="row">{{ c.label }}</th>
+                  @for (f of [c.input, c.output]; track $index) {
+                    <td>
+                      @if (f.ok) { <span class="chip ok">sim</span> } @else {
+                        <details class="viol">
+                          <summary><span class="chip bad">não</span> {{ f.violations.length }}</summary>
+                          <ul class="mono">@for (v of f.violations; track $index) { <li>{{ v }}</li> }</ul>
+                        </details>
+                      }
+                    </td>
+                  }
+                </tr>
+              }
+            </tbody>
+          </table>
+        </section>
+      }
+    </main>
+  </div>
+</div>
