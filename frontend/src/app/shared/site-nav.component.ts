@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, ElementRef, HostListener, inject, s
 import { NgTemplateOutlet } from '@angular/common';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 
-interface NavItem { key: 'bancada' | 'teoria' | 'exercicios' | 'derivacoes' | 'atividades'; path: string; label: string }
+interface NavItem { key: 'bancada' | 'teoria' | 'exercicios' | 'derivacoes' | 'glc' | 'atividades'; path: string; label: string }
 
 /** As páginas do site, sempre na mesma ordem em todas as barras. */
 const ITEMS: NavItem[] = [
@@ -10,6 +10,7 @@ const ITEMS: NavItem[] = [
   { key: 'teoria', path: '/teoria', label: 'Teoria' },
   { key: 'exercicios', path: '/exercicios', label: 'Exercícios' },
   { key: 'derivacoes', path: '/derivacoes', label: 'Derivações' },
+  { key: 'glc', path: '/glc', label: 'GLC' },
   { key: 'atividades', path: '/atividades', label: 'Atividades' },
 ];
 

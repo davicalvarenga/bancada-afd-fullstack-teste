@@ -16,13 +16,16 @@
     @case ('derivacoes') {
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="2.2"></circle><circle cx="6" cy="18" r="2.2"></circle><circle cx="18" cy="18" r="2.2"></circle><path d="M11 7l-4 9M13 7l4 9"></path></svg>
     }
+    @case ('glc') {
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h8M3 12h5M3 18h8"></path><path d="M14 8h7M18 5l3 3-3 3"></path><path d="M14 16h7"></path></svg>
+    }
     @case ('atividades') {
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><path d="M9 13h6M9 17h4"></path></svg>
     }
   }
 </ng-template>
 
-<!-- largo: as cinco páginas lado a lado -->
+<!-- largo: as páginas lado a lado -->
 <nav class="links" aria-label="Páginas">
   @for (it of items; track it.key) {
     <a [routerLink]="it.path" routerLinkActive="on" ariaCurrentWhenActive="page" [title]="it.label" [attr.aria-label]="it.label">

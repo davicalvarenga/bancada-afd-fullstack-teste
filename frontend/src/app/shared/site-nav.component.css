@@ -1,7 +1,7 @@
 :host{ display:flex; flex:none; position:relative; }
 a{ text-decoration:none; }
 
-/* largo: segmentado com as cinco páginas */
+/* largo: segmentado com as páginas */
 .links{ display:flex; gap:3px; padding:3px; border:1px solid var(--line); border-radius:11px; background:var(--surface); }
 .links a{ display:inline-flex; align-items:center; gap:7px; height:30px; padding:0 11px; border-radius:8px; font-size:13px; font-weight:500; color:var(--ink-dim); white-space:nowrap; }
 .links a:hover{ color:var(--ink); background:var(--surface-2); }

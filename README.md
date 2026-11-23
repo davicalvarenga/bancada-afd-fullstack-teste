@@ -29,7 +29,7 @@ bancada-afd/
 │     └─ config/             # data-source do TypeORM
 └─ frontend/                 # app Angular
    └─ src/app/
-      ├─ domain/             # cópia do motor puro (automaton, render)
+      ├─ domain/             # cópia do motor puro (automaton, render) + glc/ (transformações de GLC)
       ├─ core/services/      # automata (API), editor-state, theme
       ├─ core/models/        # tipos da API
       └─ features/           # portal (dois espaços) e bancada (canvas)
@@ -106,3 +106,27 @@ npm run migration:generate -- src/migrations/NomeDaMigration   # gera a partir d
 - **Checagem do motor:** `npm run check:domain` (no `backend/`) confronta a equivalência
   com força bruta em milhares de AFNs aleatórios.
 
+## Transformações de GLC
+
+Página **GLC** (`/glc`): transforma uma gramática livre do contexto **passo a passo**, pelo método da
+disciplina, mostrando em cada passo a explicação, os conjuntos auxiliares (anuláveis, fecho, FIRST…),
+as produções novas e removidas e as variáveis criadas.
+
+- **Transformações:** símbolos inúteis (estéreis → inalcançáveis), ε-livre, produções simples,
+  simplificação completa (ε → simples → inúteis), recursão à esquerda (direta e indireta, com opção
+  sem ε), fatoração à esquerda (direta e indireta), Forma Normal de Chomsky e de Greibach (remoção de
+  inúteis opcional nas duas).
+- **Entrada:** uma variável por linha, `S -> aSb | ab | ε` (também `→`; vazio = `ε`, `eps` ou `&`).
+  Aqui **variável = letra maiúscula** com sufixos opcionais (`S'`, `A1`, `Xa`) e todo outro caractere
+  é um terminal — diferente da página de Derivações.
+- **Verificações:** forma (CNF, GNF, ε-livre, recursão à esquerda, prefixo comum, com as alternativas
+  que violam), linguagem vazia e **equivalência até n** (todas as palavras de comprimento ≤ n das
+  duas gramáticas).
+- **Código:** lógica pura em `frontend/src/app/domain/glc/` (sem Angular); a tela em
+  `frontend/src/app/features/glc/`.
+
+```bash
+cd frontend
+npm test             # testes da lógica de GLC (node --test)
+npm run typecheck    # tsc --noEmit do app e dos testes
+```

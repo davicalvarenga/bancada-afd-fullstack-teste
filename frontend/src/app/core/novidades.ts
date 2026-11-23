@@ -2,7 +2,7 @@
  * Conteúdo do aviso de novidades. Para a próxima atualização: troque `versao`
  * (quem já viu a anterior vê de novo) e edite as listas.
  */
-export type NovidadeIcone = 'exercicios' | 'barra' | 'separar' | 'resolucao' | 'automato' | 'simbolo' | 'teoria' | 'pdf' | 'arvore';
+export type NovidadeIcone = 'exercicios' | 'barra' | 'separar' | 'resolucao' | 'automato' | 'simbolo' | 'teoria' | 'pdf' | 'arvore' | 'glc';
 
 export interface Novidade {
   icone: NovidadeIcone;
@@ -12,61 +12,34 @@ export interface Novidade {
 }
 
 export const NOVIDADES = {
-  versao: '2026-10-20.3',
-  quando: 'Outubro de 2026',
+  versao: '2026-11-23.1',
+  quando: 'Novembro de 2026',
   mudou: [
     {
-      icone: 'exercicios',
-      titulo: 'Exercícios têm página própria',
-      texto: 'Eram “Exercícios resolvidos”, dentro da Teoria. Agora uma aba por lista, na ordem do PDF.',
-      link: { path: '/exercicios', label: 'Abrir' },
-    },
-    {
       icone: 'barra',
-      titulo: 'Mesma barra em todas as páginas',
-      texto: 'As cinco páginas sempre no topo. No celular, ficam no botão ⋯.',
+      titulo: 'GLC entra na barra',
+      texto: 'As páginas no topo agora são seis: GLC fica ao lado de Derivações. No celular, continuam no botão ⋯.',
+      link: { path: '/glc', label: 'Abrir' },
     },
     {
-      icone: 'separar',
-      titulo: 'GLC: questões 5 a 8 separadas',
-      texto: 'Antes eram um bloco só; agora cada uma tem correção. Respostas mantidas.',
-      link: { path: '/exercicios/ex-glc-q5', label: 'Ver' },
-    },
-    {
-      icone: 'resolucao',
-      titulo: 'Resolução comentada fica fechada',
-      texto: 'Tente primeiro: a resolução de cada questão abre em “mostrar”.',
+      icone: 'teoria',
+      titulo: 'Página inicial com três atalhos',
+      texto: 'Ao lado de Teoria e Exercícios, um card leva direto às Transformações de GLC.',
+      link: { path: '/', label: 'Ver' },
     },
   ] as Novidade[],
   novo: [
     {
-      icone: 'automato',
-      titulo: 'Correção em todas as listas',
-      texto: 'Gramáticas e Gramáticas Regulares ganharam campo de resposta, inclusive para AFN.',
-      link: { path: '/exercicios/lista-gramaticas', label: 'Testar' },
+      icone: 'glc',
+      titulo: 'Transformações de GLC passo a passo',
+      texto: 'Inúteis, ε-livre, simples, recursão, fatoração, Chomsky e Greibach pelo método da aula, com o que muda em cada passo.',
+      link: { path: '/glc', label: 'Abrir' },
     },
     {
-      icone: 'simbolo',
-      titulo: 'Botões para ε e →',
-      texto: 'Um clique insere o símbolo no campo de resposta. No teclado, vale eps e ->.',
-      link: { path: '/exercicios/ex-gram-q2', label: 'Testar' },
-    },
-    {
-      icone: 'teoria',
-      titulo: '“Dúvida?” leva à teoria da questão',
-      texto: 'Cada exercício tem atalho para a seção que explica o assunto. Três seções novas.',
-    },
-    {
-      icone: 'pdf',
-      titulo: 'PDF com as suas anotações',
-      texto: 'Nas Atividades, baixe a lista com o que você escreveu com a caneta.',
-      link: { path: '/atividades', label: 'Abrir' },
-    },
-    {
-      icone: 'arvore',
-      titulo: 'Derivações passo a passo',
-      texto: 'Clique no não-terminal, escolha a regra, gere o gabarito e monte a árvore.',
-      link: { path: '/derivacoes', label: 'Abrir' },
+      icone: 'exercicios',
+      titulo: 'Confira a sua resposta',
+      texto: 'Verificador de forma (CNF, GNF, ε-livre, recursão, prefixo comum) e equivalência até n palavras.',
+      link: { path: '/glc', label: 'Testar' },
     },
   ] as Novidade[],
 };
