@@ -9,15 +9,41 @@ import { Block, Chapter, aut } from './teoria.content';
  */
 
 // Gramáticas, questão 2: S → 0S | 1A, A → 0A | 1B, B → 0B | 1C, C → 0C | 1C | ε
-const F_TRES_UNS = aut('afd',
+const F_TRES_UNS = aut('afn',
   [['S', 100, 130, 'i'], ['A', 270, 130], ['B', 440, 130], ['C', 610, 130, 'f']],
   [['S', 'S', '0'], ['S', 'A', '1'], ['A', 'A', '0'], ['A', 'B', '1'],
    ['B', 'B', '0'], ['B', 'C', '1'], ['C', 'C', '0,1']]);
 
 // Gramáticas regulares, questão 1: S → 0S | 1B, B → 0S | 1B | ε
-const F_GR_Q1 = aut('afd',
+const F_GR_Q1 = aut('afn',
   [['S', 110, 130, 'i'], ['B', 330, 130, 'f']],
   [['S', 'S', '0'], ['S', 'B', '1'], ['B', 'S', '0'], ['B', 'B', '1']]);
+
+// Gramáticas regulares, questão 2: R → aS | aR | bR, S → aT, T → aX | bX, X → a | b
+// AFN pelo dicionário (F = final novo, para as regras X → a | b).
+const F_GR_Q2_AFN = aut('afn',
+  [['R', 100, 130, 'i'], ['S', 270, 130], ['T', 440, 130], ['X', 610, 130], ['F', 780, 130, 'f']],
+  [['R', 'R', 'a,b'], ['R', 'S', 'a'], ['S', 'T', 'a'], ['T', 'X', 'a,b'], ['X', 'F', 'a,b']], ['a', 'b']);
+
+// Gramáticas regulares, questão 3: os quatro autômatos do enunciado (convenção do PDF)
+const F_GR_Q3A = aut('afn', [['A', 100, 120, 'if'], ['B', 300, 120]], [['A', 'B', 'a'], ['B', 'A', 'a']], ['a']);
+const F_GR_Q3B = aut('afn', [['A', 100, 120, 'i'], ['B', 300, 120, 'f']], [['A', 'A', 'a'], ['A', 'B', 'b'], ['B', 'B', 'a,b']], ['a', 'b']);
+const F_GR_Q3C = aut('afn', [['A', 100, 120, 'i'], ['B', 280, 120], ['C', 460, 120, 'f']], [['A', 'B', 'a'], ['B', 'B', 'a'], ['B', 'C', 'b']], ['a', 'b']);
+const F_GR_Q3D = aut('afn', [['A', 110, 120, 'if']], [['A', 'A', 'a']], ['a']);
+
+// Gramáticas regulares, questão 4: sem 1’s consecutivos, w ∈ (0,1)⁺
+const F_GR_Q4 = aut('afn',
+  [['S', 100, 130, 'i'], ['A', 290, 60, 'f'], ['B', 290, 210, 'f']],
+  [['S', 'A', '0'], ['S', 'B', '1'], ['A', 'A', '0'], ['A', 'B', '1'], ['B', 'A', '0']]);
+
+// Gramáticas regulares, questão 5: AFNs pelo dicionário (F = final novo)
+const F_GR_Q5A = aut('afn',
+  [['S', 100, 130, 'if'], ['A', 290, 60], ['B', 290, 210], ['F', 480, 210, 'f']],
+  [['S', 'A', 'a'], ['S', 'B', 'b'], ['A', 'A', 'a'], ['A', 'B', 'b'], ['B', 'B', 'b'], ['B', 'F', 'b']], ['a', 'b']);
+const F_GR_Q5B = aut('afn',
+  [['S', 300, 200, 'i'], ['A', 120, 80], ['B', 480, 80], ['C', 120, 330], ['F', 480, 330, 'f']],
+  [['S', 'S', '0'], ['S', 'A', '1'], ['S', 'B', '2'], ['S', 'F', '0'], ['S', 'C', '0'],
+   ['A', 'S', '1'], ['A', 'F', '1'], ['B', 'S', '2'], ['B', 'F', '2'], ['C', 'S', '0'], ['C', 'F', '0']], ['0', '1', '2']);
 
 // ───────────────────── Lista — Gramáticas Livres de Contexto ─────────────────────
 // Respostas-modelo geradas e conferidas pelo próprio motor (domain/grammar.ts):
@@ -30,6 +56,11 @@ const G_ASB = "S → aSb | SS | ε";
 const G_ETF = "E → E + T | T\nT → T * F | F\nF → ( E ) | a";
 const G_Q9 = "S → aSbSa | ε";
 const G_Q10 = "S → bAS | a\nA → SaA | SS | ab";
+const G_GRAM_Q1 = "R → XRX | S\nS → aTb | bTa\nT → XTX | X | ε\nX → a | b";
+const G_GRAM_Q5 = "EXPR → EXPR OP EXPR | ( EXPR ) | EXPR | id\nOP → + | - | * | /";
+const VF = ['Verdadeiro', 'Falso'];
+/** L(G) da Gramáticas Q1: palavras sobre {a, b} que não são palíndromos (conferido pelo motor). */
+const naoPalindromo = (w: string) => w !== [...w].reverse().join('');
 const count = (w: string, s: string) => { let c = 0; for (let i = 0; i + s.length <= w.length; i++) if (w.startsWith(s, i)) c++; return c; };
 const TIPO = ['Tipo 3 (regular)', 'Tipo 2 (livre de contexto)'];
 
@@ -40,6 +71,7 @@ export const EXERCICIOS_GLC: Chapter = {
   sections: [    {
       id: 'ex-glc-q1',
       title: 'Questão 1 — derivações mais à esquerda e à direita',
+      theory: ['gram-derivacao'],
       blocks: [
         { t: 'note', kind: 'q', html: 'Dada G = ({E}, {+, *, (, ), -, id}, P, E), obtenha as derivações <b>mais à esquerda</b> e <b>mais à direita</b> das sentenças a seguir.' },
         { t: 'code', text: "E → E + E | E * E | ( E ) | - E | id" },
@@ -54,6 +86,7 @@ export const EXERCICIOS_GLC: Chapter = {
     },    {
       id: 'ex-glc-q2',
       title: 'Questão 2 — árvores em S → aSb | SS | ε',
+      theory: ['gram-arvore'],
       blocks: [
         { t: 'note', kind: 'q', html: 'Dada G = ({S}, {a, b}, {S → aSb | SS | ε}, S), faça a árvore de derivação das sentenças.' },
         { t: 'note', kind: 'tip', html: 'Clique no S para escolher a regra. A regra S → ε vira um filho <b>ε</b>. Em <code>abab</code> há dois blocos “ab” lado a lado: isso pede S → SS.' },
@@ -64,6 +97,7 @@ export const EXERCICIOS_GLC: Chapter = {
     },    {
       id: 'ex-glc-q3',
       title: 'Questão 3 — árvores em E, T, F',
+      theory: ['gram-arvore'],
       blocks: [
         { t: 'note', kind: 'q', html: 'Dada G = ({E, T, F}, {+, *, (, ), a}, P, E), faça a árvore de derivação das sentenças.' },
         { t: 'code', text: "E → E + T | T\nT → T * F | F\nF → ( E ) | a" },
@@ -75,6 +109,7 @@ export const EXERCICIOS_GLC: Chapter = {
     },    {
       id: 'ex-glc-q4',
       title: 'Questão 4 — tipo 2 ou 3',
+      theory: ['chomsky-tipos', 'chomsky-teste'],
       blocks: [
         { t: 'note', kind: 'q', html: 'Indique o tipo de cada uma das gramáticas (2 ou 3).' },
         { t: 'note', kind: 'tip', html: 'Tipo 3 (regular): em <b>toda</b> regra o lado direito tem no máximo um não terminal, sempre no fim (ou sempre no começo). Qualquer outra coisa com um só não terminal à esquerda é tipo 2.' },
@@ -85,18 +120,38 @@ export const EXERCICIOS_GLC: Chapter = {
         ex({ id: "glc-4e", label: "B → aB | a", prompt: 'Qual o tipo desta gramática?', check: { kind: 'choice', options: TIPO, correct: 0 }, answer: TIPO[0], explain: "Linear à direita: aB e a." }),
       ],
     },    {
-      id: 'ex-glc-q5a8',
-      title: 'Questões 5 a 8 — conceitos',
+      id: 'ex-glc-q5',
+      title: 'Questão 5 — gramática equivalente',
+      theory: ['gram-equivalente'],
       blocks: [
         { t: 'note', kind: 'tip', html: 'Respostas dissertativas: a correção mostra quais pontos-chave a sua definição já cobre. Depois compare com a resposta-modelo.' },
         ex({ id: "glc-5", label: "5", prompt: "O que é uma gramática equivalente?", check: { kind: 'concept', groups: [{ label: "geram a mesma linguagem", terms: ["mesma linguagem", "mesmas palavras", "mesmas sentencas", "mesmo conjunto", "l(g1) = l(g2)", "l(g1)=l(g2)", "linguagens iguais", "linguagem igual", "geram a mesma", "gera a mesma", "mesma l(g)"] }, { label: "mesmo com regras diferentes", terms: ["diferente", "distint", "outras regras", "outra gramatica", "regras diferentes", "producoes diferentes"] }] }, answer: "Duas gramáticas G1 e G2 são equivalentes quando geram a mesma linguagem: L(G1) = L(G2). As regras podem ser completamente diferentes (por exemplo, uma ambígua e outra não, ou uma com produções ε e outra ε-livre)." }),
+      ],
+    },    {
+      id: 'ex-glc-q6',
+      title: 'Questão 6 — GLC ε-livre',
+      theory: ['gram-eps-livre'],
+      blocks: [
         ex({ id: "glc-6", label: "6", prompt: "O que é uma GLC ε-livre?", check: { kind: 'concept', groups: [{ label: "nenhuma produção da forma A → ε", terms: ["sem producoes vazias", "sem producao vazia", "nenhuma producao vazia", "nao possui producoes vazias", "nao tem producoes vazias", "nao possui producao vazia", "nao tem producao vazia", "sem regras vazias", "sem regra vazia", "→ ε", "-> ε", "sem ε", "sem epsilon", "nao possui ε", "nao tem ε", "nao possui epsilon", "nao tem epsilon", "producoes ε", "producao ε", "producoes-ε"] }, { label: "exceção: S → ε quando ε ∈ L(G), e S não aparece no lado direito", terms: ["exceto", "excecao", "a menos", "salvo", "s → ε", "s -> ε", "simbolo inicial", "simbolo de partida", "partida"] }] }, answer: "Uma GLC é ε-livre quando não tem produções vazias (A → ε). A única exceção permitida é S → ε, quando ε ∈ L(G), e nesse caso o símbolo de partida S não pode aparecer no lado direito de nenhuma regra. Toda GLC tem uma equivalente ε-livre." }),
+      ],
+    },    {
+      id: 'ex-glc-q7',
+      title: 'Questão 7 — gramática ambígua',
+      theory: ['gram-arvore'],
+      blocks: [
         ex({ id: "glc-7", label: "7", prompt: "O que é uma gramática ambígua?", check: { kind: 'concept', groups: [{ label: "existe uma sentença (palavra) de L(G)", terms: ["sentenca", "palavra", "cadeia"] }, { label: "com duas ou mais árvores de derivação (ou derivações mais à esquerda) diferentes", terms: ["duas arvores", "mais de uma arvore", "duas ou mais arvores", "arvores diferentes", "arvores distintas", "duas derivacoes", "mais de uma derivacao", "duas ou mais derivacoes", "derivacoes mais a esquerda diferentes", "derivacoes distintas"] }] }, answer: "Uma gramática é ambígua quando existe pelo menos uma sentença de L(G) com duas (ou mais) árvores de derivação diferentes — de forma equivalente, duas derivações mais à esquerda (ou mais à direita) diferentes. Ex.: E → E + E | E * E | id com id + id * id." }),
+      ],
+    },    {
+      id: 'ex-glc-q8',
+      title: 'Questão 8 — linguagem inerentemente ambígua',
+      theory: ['gram-inerente'],
+      blocks: [
         ex({ id: "glc-8", label: "8", prompt: "O que é uma gramática inerentemente ambígua?", check: { kind: 'concept', groups: [{ label: "é uma propriedade da linguagem", terms: ["linguagem"] }, { label: "toda gramática que gera essa linguagem é ambígua", terms: ["toda gramatica", "todas as gramaticas", "qualquer gramatica", "todas sao ambiguas", "sempre ambigua", "nao existe gramatica nao ambigua", "nao existe gramatica nao-ambigua", "nao existe nenhuma gramatica nao", "nenhuma gramatica nao ambigua"] }] }, answer: "É uma linguagem livre de contexto para a qual toda gramática que a gera é ambígua — não existe nenhuma GLC não ambígua para ela. (O termo correto é “linguagem inerentemente ambígua”.) Ex.: { aⁱbʲcᵏ | i = j ou j = k }: palavras com i = j = k têm sempre duas árvores." }),
       ],
     },    {
       id: 'ex-glc-q9',
       title: 'Questão 9 — quatro cadeias de L(G)',
+      theory: ['gram-linguagem', 'gram-derivacao'],
       blocks: [
         { t: 'note', kind: 'q', html: 'Seja G = ({S}, {a, b}, {S → aSbSa | ε}, S). Mostre quatro cadeias de L(G) e a derivação de cada uma delas.' },
         ex({ id: 'glc-9', label: '9', prompt: 'Escreva quatro derivações, cada uma começando em S, separadas por uma <b>linha em branco</b>.', check: { kind: 'sentences', grammar: G_Q9, count: 4 }, answer: "S\naSbSa\nabSa\naba\n\nS\naSbSa\naaSbSabSa\naabSabSa\naababSa\naababa\n\nS\naSbSa\nabSa\nabaSbSaa\nababSaa\nababaa\n\nS\naSbSa\naaSbSabSa\naabSabSa\naababSa\naababaSbSaa\naabababSaa\naabababaa", explain: 'Toda cadeia não vazia tem a forma a·x·b·y·a, com x e y em L(G). A menor é <b>aba</b> (os dois S viram ε); as seguintes trocam um ou os dois S internos por aba. ε também pertence a L(G) (S → ε).' }),
@@ -104,6 +159,7 @@ export const EXERCICIOS_GLC: Chapter = {
     },    {
       id: 'ex-glc-q10',
       title: 'Questão 10 — árvore de bbabaaabbaba',
+      theory: ['gram-arvore'],
       blocks: [
         { t: 'note', kind: 'q', html: 'Obtenha a árvore de derivação da sentença “bbabaaabbaba” na gramática G = ({S, A}, {a, b}, P, S).' },
         { t: 'code', text: "S → bAS | a\nA → SaA | SS | ab" },
@@ -112,6 +168,7 @@ export const EXERCICIOS_GLC: Chapter = {
     },    {
       id: 'ex-glc-q11',
       title: 'Questão 11 — construa a gramática',
+      theory: ['gram-linguagem'],
       blocks: [
         { t: 'note', kind: 'q', html: 'Construa uma gramática G para cada linguagem.' },
         { t: 'note', kind: 'tip', html: 'Uma regra por linha (S → aS | b); o símbolo de partida é o lado esquerdo da primeira. A correção gera todas as palavras da sua gramática até um tamanho limite e compara com a linguagem pedida, mostrando o que sobra e o que falta.' },
@@ -121,13 +178,14 @@ export const EXERCICIOS_GLC: Chapter = {
         ex({ id: 'glc-11d', label: '11d', prompt: "L(G) = <code>{ aⁿ bᵐ cⁿ⁻¹ | n ≥ 2 e m ≥ 1 }</code>", check: { kind: 'build', alphabet: ["a", "b", "c"], lang: (w) => { const m = /^(a+)(b+)(c*)$/.exec(w); return !!m && m[1].length >= 2 && m[3].length === m[1].length - 1; }, maxLen: 8 }, answer: "S → aA\nA → aAc | aBc\nB → bB | b", explain: "Um a sobra sem par (S → aA); os demais vêm com um c cada, e pelo menos um par (A → aBc) garante n ≥ 2." }),
         ex({ id: 'glc-11e', label: '11e', prompt: "L(G) = <code>{ w ∈ (0,1,2)⁺ | todos os 0’s são consecutivos }</code>", check: { kind: 'build', alphabet: ["0", "1", "2"], lang: (w) => w.length > 0 && /^[12]*0*[12]*$/.test(w), maxLen: 6 }, answer: "S → 1S | 2S | 0Z | 1 | 2\nZ → 0Z | 1B | 2B | ε\nB → 1B | 2B | ε", explain: "Antes do bloco de zeros vale 1 ou 2 à vontade (S); Z continua o bloco; depois que sai do bloco (B) não pode mais aparecer 0." }),
         ex({ id: 'glc-11f', label: '11f', prompt: "L(G) = <code>{ w ∈ (0,1,2)⁺ | todo 0 vem seguido de um 1 }</code>", check: { kind: 'build', alphabet: ["0", "1", "2"], lang: (w) => /^(1|2|01)+$/.test(w), maxLen: 6 }, answer: "S → 1S | 2S | 01S | 1 | 2 | 01", explain: "A palavra é uma sequência de blocos 1, 2 ou 01: o 0 só aparece colado num 1." }),
-        ex({ id: 'glc-11g', label: '11g', prompt: "L(G) = <code>{ w ∈ (a,b)⁺ | no máximo um par aa e no máximo um par bb como subpalavra }</code>", check: { kind: 'build', alphabet: ["a", "b"], lang: (w) => w.length > 0 && count(w, 'aa') <= 1 && count(w, 'bb') <= 1, maxLen: 8 }, answer: "S → aA00 | bB00\nA00 → aA10 | bB00 | ε\nA10 → bB10 | ε\nA01 → aA11 | bB01 | ε\nA11 → bB11 | ε\nB00 → bB01 | aA00 | ε\nB01 → aA01 | ε\nB10 → bB11 | aA10 | ε\nB11 → aA11 | ε", explain: "Lido como “aa aparece no máximo uma vez” (aaa tem duas ocorrências, sobrepostas). Cada não terminal lembra a última letra (A/B) e se aa e bb já foram usados (dígitos): é o AFD escrito como gramática." }),
-        ex({ id: 'glc-11h', label: '11h', prompt: "L(G) = <code>{ w ∈ (0,1,2)⁺ | w não possui 010 }</code>", check: { kind: 'build', alphabet: ["0", "1", "2"], lang: (w) => w.length > 0 && !w.includes('010'), maxLen: 6 }, answer: "S → 0A | 1B | 2B\nB → 0A | 1B | 2B | ε\nA → 0A | 1C | 2B | ε\nC → 1B | 2B | ε", explain: "Estados do AFD de “não contém 010”: B = nada útil, A = acabou em 0, C = acabou em 01 (aqui o 0 é proibido)." }),
+        ex({ id: 'glc-11g', label: '11g', prompt: "L(G) = <code>{ w ∈ (a,b)⁺ | no máximo um par aa e no máximo um par bb como subpalavra }</code>", check: { kind: 'build', alphabet: ["a", "b"], lang: (w) => w.length > 0 && count(w, 'aa') <= 1 && count(w, 'bb') <= 1, maxLen: 8 }, answer: "S → aA00 | bB00\nA00 → aA10 | bB00 | ε\nA10 → bB10 | ε\nA01 → aA11 | bB01 | ε\nA11 → bB11 | ε\nB00 → bB01 | aA00 | ε\nB01 → aA01 | ε\nB10 → bB11 | aA10 | ε\nB11 → aA11 | ε", explain: "Lido como “aa aparece no máximo uma vez” (aaa tem duas ocorrências, sobrepostas). Cada não terminal lembra a última letra (A/B) e se aa e bb já foram usados (dígitos): é o autômato escrito como gramática." }),
+        ex({ id: 'glc-11h', label: '11h', prompt: "L(G) = <code>{ w ∈ (0,1,2)⁺ | w não possui 010 }</code>", check: { kind: 'build', alphabet: ["0", "1", "2"], lang: (w) => w.length > 0 && !w.includes('010'), maxLen: 6 }, answer: "S → 0A | 1B | 2B\nB → 0A | 1B | 2B | ε\nA → 0A | 1C | 2B | ε\nC → 1B | 2B | ε", explain: "Estados do autômato de “não contém 010”: B = nada útil, A = acabou em 0, C = acabou em 01 (aqui o 0 é proibido)." }),
         ex({ id: 'glc-11i', label: '11i', prompt: "L(G) = <code>{ w ∈ (a,b,c)⁺ | w possui baa }</code>", check: { kind: 'build', alphabet: ["a", "b", "c"], lang: (w) => w.includes('baa'), maxLen: 6 }, answer: "S → aS | bS | cS | baaT\nT → aT | bT | cT | ε", explain: "Qualquer prefixo, depois o baa obrigatório, depois qualquer sufixo." }),
       ],
     },    {
       id: 'ex-glc-q12',
       title: 'Questão 12 — palíndromos',
+      theory: ['gram-linguagem'],
       blocks: [
         { t: 'note', kind: 'q', html: 'Construa uma gramática que gere L(G) = { w | w ∈ (a,b,c)⁺ e w é palíndromo }. Ex.: abba, bcabacb, abbbba, cacac.' },
         ex({ id: 'glc-12', label: '12', prompt: 'L(G) = <code>{ w ∈ (a,b,c)⁺ | w = wᴿ }</code>', check: { kind: 'build', alphabet: ['a', 'b', 'c'], lang: (w) => w.length > 0 && w === [...w].reverse().join(''), maxLen: 6 }, answer: "S → aSa | bSb | cSc | a | b | c | aa | bb | cc", explain: 'Cada passo põe a mesma letra nas duas pontas. O miolo final é uma letra (tamanho ímpar) ou um par igual (tamanho par). Sem S → ε, porque ε não está em (a,b,c)⁺.' }),
@@ -145,9 +203,24 @@ export const EXERCICIOS: Chapter[] = [
       {
         id: 'ex-gram-q1',
         title: 'Questão 1 — analisando uma gramática',
+        theory: ['gram-definicao', 'gram-derivacao'],
         blocks: [
           { t: 'note', kind: 'q', html: 'Dada G = ({R, S, T, X}, {a, b}, P, R), responda: (a) terminais, não terminais e símbolo de partida; (b) três palavras aceitas; (c) três palavras não aceitas; (d) verdadeiro ou falso.' },
           { t: 'code', text: 'R → XRX | S\nS → aTb | bTa\nT → XTX | X | ε\nX → a | b' },
+          ex({ id: 'gram-1a', label: '1a', prompt: 'Terminais, não terminais e símbolo de partida de G.', check: { kind: 'choice', options: ['Terminais {a, b}; não terminais {R, S, T, X}; partida R', 'Terminais {a, b}; não terminais {R, S, T, X}; partida S', 'Terminais {a, b, ε}; não terminais {R, S, T, X}; partida R', 'Terminais {R, S, T, X}; não terminais {a, b}; partida R'], correct: 0 },
+            answer: 'Terminais {a, b}; não terminais {R, S, T, X}; partida R', explain: 'O símbolo de partida é o 4º elemento da tupla: <b>R</b>. O “S” aqui é só mais um não terminal, e ε não é terminal.' }),
+          ex({ id: 'gram-1b', label: '1b', prompt: 'Três palavras geradas por G, cada uma com sua derivação a partir de <code>R</code>.', check: { kind: 'sentences', grammar: G_GRAM_Q1, count: 3 },
+            answer: 'R\nS\naTb\nab\n\nR\nS\naTb\naXb\naab\n\nR\nXRX\naRX\naRa\naSa\naaTba\naaXba\naaaba', explain: 'Método rápido: compare as pontas indo para dentro. Par igual → R → XRX; primeiro par diferente → S → aTb ou bTa; o miolo → T.' }),
+          ex({ id: 'gram-1c', label: '1c', prompt: 'Três palavras sobre {a, b} que <b>não</b> são geradas por G.', check: { kind: 'outside', alphabet: ['a', 'b'], lang: naoPalindromo, count: 3 },
+            answer: 'ε\na\naba', explain: 'L(G) são as palavras que <b>não são palíndromos</b>: toda derivação passa por S → aTb | bTa, que põe letras diferentes em posições simétricas. Qualquer palíndromo serve: ε, a, b, aa, aba, abba…' }),
+          ex({ id: 'gram-1d-1', label: '1d · 1', prompt: 'Verdadeiro ou falso: <code>T ⇒ aba</code>', check: { kind: 'choice', options: VF, correct: 1 }, answer: VF[1], explain: 'Em 1 passo T só vira XTX, X ou ε.' }),
+          ex({ id: 'gram-1d-2', label: '1d · 2', prompt: 'Verdadeiro ou falso: <code>T ⇒* aba</code>', check: { kind: 'choice', options: VF, correct: 0 }, answer: VF[0], explain: 'T ⇒ XTX ⇒ XXX ⇒ aXX ⇒ abX ⇒ aba.' }),
+          ex({ id: 'gram-1d-3', label: '1d · 3', prompt: 'Verdadeiro ou falso: <code>T ⇒ T</code>', check: { kind: 'choice', options: VF, correct: 1 }, answer: VF[1], explain: 'Não existe a regra T → T. (T ⇒* T seria V, com 0 passos.)' }),
+          ex({ id: 'gram-1d-4', label: '1d · 4', prompt: 'Verdadeiro ou falso: <code>XXX ⇒* aba</code>', check: { kind: 'choice', options: VF, correct: 0 }, answer: VF[0], explain: 'X → a, X → b, X → a.' }),
+          ex({ id: 'gram-1d-5', label: '1d · 5', prompt: 'Verdadeiro ou falso: <code>T ⇒* XX</code>', check: { kind: 'choice', options: VF, correct: 0 }, answer: VF[0], explain: 'T ⇒ XTX ⇒ XX (T → ε).' }),
+          ex({ id: 'gram-1d-6', label: '1d · 6', prompt: 'Verdadeiro ou falso: <code>T ⇒* XXX</code>', check: { kind: 'choice', options: VF, correct: 0 }, answer: VF[0], explain: 'T ⇒ XTX ⇒ XXX (T → X).' }),
+          ex({ id: 'gram-1d-7', label: '1d · 7', prompt: 'Verdadeiro ou falso: <code>S ⇒* ε</code>', check: { kind: 'choice', options: VF, correct: 1 }, answer: VF[1], explain: 'As duas regras de S já produzem 2 terminais.' }),
+          { t: 'sol', blocks: [
           { t: 'h', text: 'Entendendo cada não terminal' },
           { t: 'list', items: [
             '<b>X → a | b</b>: um símbolo qualquer (“coringa”).',
@@ -175,54 +248,84 @@ export const EXERCICIOS: Chapter[] = [
             ['S ⇒* ε', '<b>F</b>', 'as duas regras de S já produzem 2 terminais'],
           ] },
           { t: 'note', kind: 'warn', html: 'Pegadinhas: <b>T ⇒ aba</b> e <b>T ⇒ T</b>. A diferença está na seta: ⇒ é exatamente 1 passo, ⇒* é 0 ou mais.' },
+          ] },
         ],
       },
       {
         id: 'ex-gram-q2',
         title: 'Questão 2 — pelo menos três 1’s',
+        theory: ['gr-forma', 'gram-linguagem'],
         blocks: [
           { t: 'note', kind: 'q', html: 'Dado Σ = {0, 1}, dê a gramática que gere { w | w contém pelo menos três 1’s }.' },
-          { t: 'p', html: 'O que a gramática precisa lembrar: <b>quantos 1’s já foram gerados</b> (0, 1, 2, 3 ou mais). Cada não terminal guarda uma contagem, igual aos estados de um AFD.' },
+          ex({ id: 'gram-2', label: '2', prompt: 'Gramática que gere <code>{ w ∈ {0, 1}* | w contém pelo menos três 1’s }</code>.', check: { kind: 'build', alphabet: ['0', '1'], lang: (w) => (w.match(/1/g) ?? []).length >= 3, maxLen: 8 },
+            answer: 'S → 0S | 1A\nA → 0A | 1B\nB → 0B | 1C\nC → 0C | 1C | ε', explain: 'Cada não terminal guarda quantos 1’s já saíram; o ε só existe em C. Também vale S → A1A1A1A, A → 0A | 1A | ε.' }),
+          { t: 'sol', blocks: [
+          { t: 'p', html: 'O que a gramática precisa lembrar: <b>quantos 1’s já foram gerados</b> (0, 1, 2, 3 ou mais). Cada não terminal guarda uma contagem, igual aos estados de um autômato.' },
           { t: 'code', text: 'G = ({S, A, B, C}, {0, 1}, P, S)\n\nS → 0S | 1A       (nenhum 1 ainda)\nA → 0A | 1B       (um 1)\nB → 0B | 1C       (dois 1’s)\nC → 0C | 1C | ε   (três ou mais: pode parar)' },
           { t: 'p', html: 'O <b>ε só existe em C</b>, então a derivação só termina depois do terceiro 1. A gramática é regular, e o AF sai direto do dicionário:' },
-          { t: 'fig', model: F_TRES_UNS, caption: 'AFD da gramática: cada estado é uma contagem de 1’s; só C (três ou mais) é final.', re: '^(0*1){3}[01]*$' },
+          { t: 'fig', model: F_TRES_UNS, caption: 'AF da gramática (tradução direta): cada estado é uma contagem de 1’s; só C (três ou mais) é final.', re: '^(0*1){3}[01]*$' },
           { t: 'code', text: 'Gerada:     10101 : S ⇒ 1A ⇒ 10A ⇒ 101B ⇒ 1010B ⇒ 10101C ⇒ 10101\nNão gerada: 0110  : só dois 1’s → para em B, e B não tem → ε' },
           { t: 'note', kind: 'tip', html: 'Também vale a livre de contexto <b>S → A1A1A1A</b>, <b>A → 0A | 1A | ε</b>. A regular é mais fácil de provar e de converter em AF.' },
+          ] },
         ],
       },
       {
         id: 'ex-gram-q3',
         title: 'Questão 3 — sentença × forma sentencial',
+        theory: ['gram-forma-sentencial'],
         blocks: [
           { t: 'note', kind: 'q', html: 'Explique a diferença entre sentença e forma sentencial.' },
+          ex({ id: 'gram-3', label: '3', prompt: 'Explique a diferença entre sentença e forma sentencial.', check: { kind: 'concept', groups: [
+              { label: 'forma sentencial: qualquer cadeia derivável do símbolo de partida (S ⇒* α)', terms: ['deriva', 'obtida a partir', 'gerada a partir', 'a partir do simbolo', 'a partir de s', '=>*', '⇒*'] },
+              { label: 'pode misturar terminais e não terminais', terms: ['nao terminais', 'nao terminal', 'variaveis', 'variavel', 'mistura'] },
+              { label: 'sentença: formada só por terminais', terms: ['so terminais', 'somente terminais', 'apenas terminais', 'so de terminais', 'somente de terminais', 'apenas de terminais', 'so por terminais', 'somente por terminais', 'apenas por terminais', 'sem nao terminais', 'sem variaveis'] },
+              { label: 'é a sentença que pertence a L(G)', terms: ['l(g)', 'linguagem'] },
+            ] },
+            answer: 'Forma sentencial é qualquer cadeia derivável do símbolo de partida (S ⇒* α); pode misturar terminais e não terminais. Sentença é uma forma sentencial formada só por terminais: é ela que pertence a L(G). Toda sentença é forma sentencial, mas não o contrário.' }),
+          { t: 'sol', blocks: [
           { t: 'list', items: [
             '<b>Forma sentencial</b>: qualquer cadeia derivável do símbolo de partida (S ⇒* α). Pode misturar terminais e não terminais.',
             '<b>Sentença</b>: forma sentencial formada <b>só por terminais</b>. É ela que pertence a L(G).',
           ] },
           { t: 'p', html: 'Toda sentença é forma sentencial; o contrário não vale. Na questão 1: <b>aXb</b> é forma sentencial (R ⇒ S ⇒ aTb ⇒ aXb); <b>aab</b> é sentença (aXb ⇒ aab).' },
+          ] },
         ],
       },
       {
         id: 'ex-gram-q4',
         title: 'Questão 4 — linguagem gerada',
+        theory: ['gram-linguagem'],
         blocks: [
           { t: 'note', kind: 'q', html: 'Defina o que é linguagem gerada por uma gramática.' },
+          ex({ id: 'gram-4', label: '4', prompt: 'Defina o que é linguagem gerada por uma gramática.', check: { kind: 'concept', groups: [
+              { label: 'é um conjunto de palavras (sentenças)', terms: ['conjunto'] },
+              { label: 'formadas só por terminais (w ∈ T*)', terms: ['terminais', 'terminal', 't*'] },
+              { label: 'derivadas a partir do símbolo de partida (S ⇒* w)', terms: ['simbolo de partida', 'simbolo inicial', 'a partir de s', 'a partir do s', '⇒*', '=>*', 'deriva'] },
+            ] },
+            answer: 'É o conjunto de todas as sentenças de G: L(G) = { w ∈ T* | S ⇒* w }, ou seja, as cadeias só de terminais que podem ser derivadas a partir do símbolo de partida.' }),
+          { t: 'sol', blocks: [
           { t: 'code', text: 'G = (N, T, P, S)\n\nL(G) = { w ∈ T* | S ⇒* w }' },
           { t: 'p', html: 'É o conjunto de <b>todas as sentenças</b> de G: cadeias só de terminais obtidas a partir do símbolo de partida, aplicando as produções de P zero ou mais vezes.' },
+          ] },
         ],
       },
       {
         id: 'ex-gram-q5',
         title: 'Questão 5 — (id + id) / id é gerada?',
+        theory: ['gram-derivacao', 'gram-arvore'],
         blocks: [
           { t: 'note', kind: 'q', html: 'Verifique se w = (id + id) / id é gerada por G = ({EXPR, OP}, {&lt;, &gt;, id, -, +, *, /}, P, EXPR).' },
           { t: 'code', text: 'EXPR → EXPR OP EXPR | (EXPR) | EXPR | id\nOP   → + | - | * | /' },
+          ex({ id: 'gram-5', label: '5', prompt: 'Mostre que <code>(id + id) / id</code> é gerada: escreva uma derivação a partir de <code>EXPR</code>. Considere ( e ) como terminais.', check: { kind: 'derivation', grammar: G_GRAM_Q5, word: '(id + id) / id', order: 'any' },
+            answer: 'EXPR\nEXPR OP EXPR\n( EXPR ) OP EXPR\n( EXPR OP EXPR ) OP EXPR\n( id OP EXPR ) OP EXPR\n( id + EXPR ) OP EXPR\n( id + id ) OP EXPR\n( id + id ) / EXPR\n( id + id ) / id', explain: 'Sim, w é gerada. Qualquer derivação válida é aceita, em qualquer ordem. O enunciado lista &lt; e &gt; em T, mas as regras usam ( e ).' }),
+          { t: 'sol', blocks: [
           { t: 'p', html: '<b>Sim.</b> Derivação mais à esquerda:' },
           { t: 'code', text: 'EXPR ⇒ EXPR OP EXPR\n     ⇒ (EXPR) OP EXPR\n     ⇒ (EXPR OP EXPR) OP EXPR\n     ⇒ (id OP EXPR) OP EXPR\n     ⇒ (id + EXPR) OP EXPR\n     ⇒ (id + id) OP EXPR\n     ⇒ (id + id) / EXPR\n     ⇒ (id + id) / id' },
           { t: 'list', items: [
             '<b>Erro no enunciado:</b> T lista &lt; e &gt;, mas as regras usam ( e ). Responda “sim, considerando ( e ) como terminais” e registre a observação.',
             '<b>EXPR → EXPR</b> é uma regra unitária inútil: não muda nada e só permite derivações infinitas.',
             '<b>A gramática é ambígua:</b> id + id / id tem duas árvores, porque não há precedência. Na palavra pedida, os parênteses resolvem.',
+          ] },
           ] },
         ],
       },
@@ -232,15 +335,19 @@ export const EXERCICIOS: Chapter[] = [
   {
     id: 'lista-gr',
     title: 'Gramáticas Regulares',
-    summary: 'Da gramática regular para o AFD, conferindo na bancada.',
+    summary: 'Gramática regular ↔ autômato finito, nos dois sentidos, com correção automática em todas as questões.',
     sections: [
       {
         id: 'ex-gr-q1',
-        title: 'Questão 1 — AFD da gramática',
+        title: 'Questão 1 — AFN da gramática',
+        theory: ['gr-gr-para-af', 'gr-finais'],
         blocks: [
-          { t: 'note', kind: 'q', html: 'Obtenha o AFD da gramática G = ({S, B}, {0, 1}, P, S).' },
+          { t: 'note', kind: 'q', html: 'Obtenha o AFN da gramática G = ({S, B}, {0, 1}, P, S).' },
           { t: 'code', text: 'S → 0S | 1B\nB → 0S | 1B | ε' },
-          { t: 'table', head: ['Regra', 'No AFD'], rows: [
+          ex({ id: 'gr-1', label: '1', prompt: 'Escreva o AFN da <b>tradução direta</b> da gramática: uma transição por linha (<code>origem símbolo destino</code>), mais as linhas <code>inicial:</code> e <code>finais:</code>.', check: { kind: 'automaton', ref: F_GR_Q1, deterministic: false, exact: true },
+            answer: 'inicial: S\nfinais: B\nS 0 S\nS 1 B\nB 0 S\nB 1 B', explain: 'A correção exige a tradução direta: um estado por não terminal, uma transição por regra A → xB e B final (por B → ε). Os nomes dos estados podem ser outros.' }),
+          { t: 'sol', blocks: [
+          { t: 'table', head: ['Regra', 'No AFN'], rows: [
             ['S (partida)', 'S é o estado <b>inicial</b>'],
             ['S → 0S', 'laço em S com 0'],
             ['S → 1B', 'S —1→ B'],
@@ -248,8 +355,8 @@ export const EXERCICIOS: Chapter[] = [
             ['B → 1B', 'laço em B com 1'],
             ['B → ε', 'B é <b>final</b>'],
           ] },
-          { t: 'fig', model: F_GR_Q1, caption: 'Completo (uma saída por símbolo em cada estado), então não precisa de estado morto. Aceita as palavras que terminam em 1.', re: '^[01]*1$' },
-          { t: 'note', kind: 'warn', title: 'Erro comum', html: 'Montar as quatro transições certas e esquecer de marcar <b>B como final</b>. Sem nenhum estado final o autômato não aceita nada (L = ∅): a palavra <b>1</b> é gerada (S ⇒ 1B ⇒ 1), mas o AFD pararia em B e rejeitaria. <b>A → ε sempre torna A final.</b>' },
+          { t: 'fig', model: F_GR_Q1, caption: 'AFN da tradução direta. Nesta gramática ele já tem uma saída por símbolo em cada estado. Aceita as palavras que terminam em 1.', re: '^[01]*1$' },
+          { t: 'note', kind: 'warn', title: 'Erro comum', html: 'Montar as quatro transições certas e esquecer de marcar <b>B como final</b>. Sem nenhum estado final o autômato não aceita nada (L = ∅): a palavra <b>1</b> é gerada (S ⇒ 1B ⇒ 1), mas o autômato pararia em B e rejeitaria. <b>A → ε sempre torna A final.</b>' },
           { t: 'p', html: 'Por que “termina em 1”: toda vez que lê 1 o autômato vai para B, toda vez que lê 0 volta para S. Só fica em B (final) se o último símbolo foi 1. ε não é aceita porque S não tem S → ε.' },
           { t: 'table', head: ['Palavra', 'Caminho', 'Resultado'], rows: [
             ['ε', 'S', 'rejeita'],
@@ -259,6 +366,86 @@ export const EXERCICIOS: Chapter[] = [
             ['01', 'S S B', 'aceita'],
             ['0110', 'S S B B S', 'rejeita'],
             ['1011', 'S B S B B', 'aceita'],
+          ] },
+          ] },
+        ],
+      },
+      {
+        id: 'ex-gr-q2',
+        title: 'Questão 2 — DTE do AFN equivalente',
+        theory: ['gr-gr-para-af'],
+        blocks: [
+          { t: 'note', kind: 'q', html: 'Dada a gramática G = ({R, S, T, X}, {a, b}, P, R), forneça o DTE (diagrama de transição de estados) do AFN equivalente.' },
+          { t: 'code', text: 'R → aS | aR | bR\nS → aT\nT → aX | bX\nX → a | b' },
+          ex({ id: 'gr-2', label: '2', prompt: 'Escreva o AFN da <b>tradução direta</b> da gramática: uma transição por linha (<code>origem símbolo destino</code>), mais as linhas <code>inicial:</code> e <code>finais:</code>.', check: { kind: 'automaton', ref: F_GR_Q2_AFN, deterministic: false, exact: true },
+            answer: 'inicial: R\nfinais: F\nR a R\nR b R\nR a S\nS a T\nT a X\nT b X\nX a F\nX b F',
+            explain: 'A correção exige a tradução direta: R, S, T, X e o final novo F (pelas regras X → a | b). O AFD da construção de subconjuntos não é aceito, porque a disciplina pede o AFN. Os nomes dos estados podem ser outros.' }),
+          { t: 'sol', blocks: [
+          { t: 'p', html: 'A gramática <b>não é determinística</b>: com <b>a</b>, R pode ir para S ou ficar em R. Isso não é problema: a tradução direta dá um AFN, e ele é a resposta.' },
+          { t: 'h', text: 'AFN pelo dicionário' },
+          { t: 'p', html: 'Cada regra A → xB vira uma transição A —x→ B. As regras <b>X → a | b</b> terminam a palavra sem não terminal: elas levam a um estado final novo, <b>F</b>.' },
+          { t: 'fig', model: F_GR_Q2_AFN, caption: 'AFN da gramática: R lê qualquer prefixo; depois vêm a, a e mais dois símbolos quaisquer.', re: '^[ab]*aa[ab][ab]$' },
+          { t: 'note', kind: 'def', title: 'L(G)', html: 'Palavras sobre {a, b} cujo <b>4º e 3º símbolos a partir do fim são a</b>: (a | b)* aa (a | b)(a | b).' },
+          ] },
+        ],
+      },
+      {
+        id: 'ex-gr-q3',
+        title: 'Questão 3 — gramática equivalente aos AFNs',
+        theory: ['gr-af-para-gr'],
+        blocks: [
+          { t: 'note', kind: 'q', html: 'Defina a gramática equivalente aos seguintes AFNs. Convenção: seta solta = estado inicial; círculo duplo = estado de aceitação.' },
+          { t: 'note', kind: 'tip', title: 'Dicionário AF → GR', html: 'Cada estado vira um não terminal; o inicial é o símbolo de partida. Cada transição <b>A —x→ B</b> vira a regra <b>A → xB</b>. Cada estado <b>final</b> ganha <b>A → ε</b>.' },
+          { t: 'fig', model: F_GR_Q3A, caption: '(a) Σ = {a}: aceita as palavras de tamanho par, inclusive ε.', re: '^(aa)*$' },
+          ex({ id: 'gr-3a', label: '3a', prompt: 'Gramática equivalente ao AFN (a).', check: { kind: 'build', alphabet: ['a'], lang: (w) => /^(aa)*$/.test(w), maxLen: 10 },
+            answer: 'A → aB | ε\nB → aA', explain: 'A é inicial <b>e</b> final, então ganha A → ε (é isso que faz ε ∈ L). B não é final: não tem regra ε.' }),
+          { t: 'fig', model: F_GR_Q3B, caption: '(b) a* b (a | b)*: tem pelo menos um b.', re: '^a*b[ab]*$' },
+          ex({ id: 'gr-3b', label: '3b', prompt: 'Gramática equivalente ao AFN (b).', check: { kind: 'build', alphabet: ['a', 'b'], lang: (w) => /^a*b[ab]*$/.test(w), maxLen: 7 },
+            answer: 'A → aA | bB\nB → aB | bB | ε', explain: 'O laço a,b em B vira duas regras: B → aB | bB.' }),
+          { t: 'fig', model: F_GR_Q3C, caption: '(c) a⁺ b: um ou mais a, depois exatamente um b.', re: '^aa*b$' },
+          ex({ id: 'gr-3c', label: '3c', prompt: 'Gramática equivalente ao AFN (c).', check: { kind: 'build', alphabet: ['a', 'b'], lang: (w) => /^a+b$/.test(w), maxLen: 7 },
+            answer: 'A → aB\nB → aB | bC\nC → ε', explain: 'Também vale juntar o último passo: <b>B → aB | b</b> (sem C), porque C só serve para terminar.' }),
+          { t: 'fig', model: F_GR_Q3D, caption: '(d) Σ = {a}: a* (inclusive ε).', re: '^a*$' },
+          ex({ id: 'gr-3d', label: '3d', prompt: 'Gramática equivalente ao AFN (d).', check: { kind: 'build', alphabet: ['a'], lang: (w) => /^a*$/.test(w), maxLen: 10 },
+            answer: 'A → aA | ε', explain: 'Um único estado, inicial e final, com laço em a.' }),
+        ],
+      },
+      {
+        id: 'ex-gr-q4',
+        title: 'Questão 4 — sem 1’s consecutivos',
+        theory: ['gr-forma', 'gr-af-para-gr'],
+        blocks: [
+          { t: 'note', kind: 'q', html: 'Construa uma gramática regular G tal que L(G) = { w | w ∈ (0,1)⁺ e não tenha 1’s consecutivos }.' },
+          ex({ id: 'gr-4', label: '4', prompt: 'L(G) = <code>{ w ∈ (0,1)⁺ | w não tem 11 }</code>', check: { kind: 'build', alphabet: ['0', '1'], lang: (w) => w.length > 0 && !w.includes('11'), maxLen: 9 },
+            answer: 'S → 0A | 1B\nA → 0A | 1B | ε\nB → 0A | ε', explain: 'É o autômato da resolução escrito como gramática. Outra forma, sem ε: <b>S → 0A | 1B | 0 | 1</b>, <b>A → 0A | 1B | 0 | 1</b>, <b>B → 0A | 0</b>.' }),
+          { t: 'sol', blocks: [
+          { t: 'p', html: 'Pense no autômato primeiro: basta lembrar <b>se o último símbolo foi 1</b>. Depois de um 1, só pode vir 0. O <b>+</b> exclui ε, então o símbolo de partida não pode ter regra vazia.' },
+          { t: 'fig', model: F_GR_Q4, caption: 'A = último foi 0; B = último foi 1 (B não tem saída com 1). S não é final: ε não está na linguagem.', re: '^(?!.*11)[01]+$' },
+          ] },
+        ],
+      },
+      {
+        id: 'ex-gr-q5',
+        title: 'Questão 5 — AF equivalentes às gramáticas',
+        theory: ['gr-gr-para-af', 'gr-finais'],
+        blocks: [
+          { t: 'note', kind: 'q', html: 'Determine os AF equivalentes às gramáticas regulares abaixo.' },
+          { t: 'note', kind: 'tip', title: 'Dicionário GR → AF', html: 'A → xB vira A —x→ B. A → x (terminal sozinho) vira A —x→ F, com <b>F final novo</b>. A → ε torna A final. O resultado é um AFN, e ele é a resposta.' },
+          { t: 'h', text: '(a)' },
+          { t: 'code', text: 'G = ({S, A, B}, {a, b}, P, S)\n\nS → aA | bB | ε\nA → aA | bB\nB → bB | b' },
+          ex({ id: 'gr-5a', label: '5a', prompt: 'Escreva o AFN da <b>tradução direta</b> da gramática (a).', check: { kind: 'automaton', ref: F_GR_Q5A, deterministic: false, exact: true },
+            answer: 'inicial: S\nfinais: S, F\nS a A\nS b B\nA a A\nA b B\nB b B\nB b F', explain: 'A correção exige a tradução direta: S, A, B e o final novo F (por B → b); S é final por S → ε. Os nomes dos estados podem ser outros.' }),
+          { t: 'sol', blocks: [
+          { t: 'fig', model: F_GR_Q5A, caption: 'S é final por causa de S → ε. B → bB | b dá duas saídas com b (para B e para F): é um AFN.', re: '^(a*bb+)?$' },
+          { t: 'note', kind: 'def', title: 'L(G)', html: 'ε ou a* b b⁺ (alguns a’s, depois pelo menos dois b’s).' },
+          ] },
+          { t: 'h', text: '(b)' },
+          { t: 'code', text: 'G = ({S, A, B, C}, {0, 1, 2}, P, S)\n\nS → 0S | 1A | 2B | 0 | 0C\nA → 1S | 1\nB → 2S | 2\nC → 0S | 0' },
+          ex({ id: 'gr-5b', label: '5b', prompt: 'Escreva o AFN da <b>tradução direta</b> da gramática (b).', check: { kind: 'automaton', ref: F_GR_Q5B, deterministic: false, exact: true },
+            answer: 'inicial: S\nfinais: F\nS 0 S\nS 1 A\nS 2 B\nS 0 F\nS 0 C\nA 1 S\nA 1 F\nB 2 S\nB 2 F\nC 0 S\nC 0 F', explain: 'C é redundante (C → 0S | 0 faz o mesmo que ler mais um 0 em S), mas a tradução direta o mantém, e a correção também exige C.' }),
+          { t: 'sol', blocks: [
+          { t: 'fig', model: F_GR_Q5B, caption: 'Os terminais sozinhos (0, 1, 2) levam ao final novo F. Lido em blocos, aceita sequências não vazias de 0, 11 e 22.', re: '^(0|11|22)+$' },
+          { t: 'note', kind: 'def', title: 'L(G)', html: '(0 | 11 | 22)⁺ — o bloco 00 (via C) já é 0 seguido de 0.' },
           ] },
         ],
       },

@@ -6,14 +6,7 @@
     <div class="brand mono">derivações</div>
     <div class="where mono">⇒ passo a passo · árvore de derivação</div>
     <div class="spacer"></div>
-    <a class="tbtn" routerLink="/atividades" title="Listas em PDF">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><path d="M9 13h6M9 17h4"></path></svg>
-      <span class="lbl">Atividades</span>
-    </a>
-    <a class="tbtn" routerLink="/teoria/gram-arvore" title="Teoria: árvore e ambiguidade">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"></path><path d="M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"></path></svg>
-      <span class="lbl">Teoria</span>
-    </a>
+    <app-site-nav />
     <button class="iconbtn" (click)="theme.toggle()" title="Alternar tema" aria-label="Alternar tema">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"></path></svg>
     </button>
@@ -36,12 +29,13 @@
       </select>
       @if (preset(); as p) { <p class="hint">{{ p.note }}</p> }
       <div class="links">
-        @if (preset()?.section; as sec) { <a class="mini" [routerLink]="['/teoria', sec]">Ver exercício ↗</a> }
+        @if (preset()?.section; as sec) { <a class="mini" [routerLink]="['/exercicios', sec]">Ver exercício ↗</a> }
         @if (atividade()) { <button type="button" class="mini" (click)="openPdf()">Abrir PDF da lista</button> }
       </div>
 
       <label class="lab mono" for="dv-gram">Regras (uma por linha)</label>
-      <textarea id="dv-gram" class="inp code" rows="6" spellcheck="false" maxlength="4000" autocomplete="off"
+      <app-sym-bar [target]="taGram" [syms]="[{ s: 'ε', label: 'vazio' }, { s: '→' }]" />
+      <textarea #taGram id="dv-gram" class="inp code" rows="6" spellcheck="false" maxlength="4000" autocomplete="off"
                 [value]="grammarText()" (input)="editGrammar($any($event.target).value)"></textarea>
       <p class="hint">Use <code>→</code> ou <code>-&gt;</code>, <code>|</code> entre alternativas e <code>ε</code> (ou <code>eps</code>) para vazio. A partida é o lado esquerdo da 1ª regra. Com espaços entre símbolos, <code>id</code> vira um terminal só.</p>
 
@@ -103,7 +97,8 @@
             <button class="mini" (click)="restartSteps()">Recomeçar</button>
           </div>
           <label class="lab mono" for="dv-steps">Uma forma sentencial por linha (ou separadas por ⇒)</label>
-          <textarea id="dv-steps" class="inp code" rows="7" spellcheck="false" maxlength="6000" autocomplete="off"
+          <app-sym-bar [target]="taSteps" [syms]="[{ s: 'ε', label: 'vazio' }]" [typed]="['eps']" />
+          <textarea #taSteps id="dv-steps" class="inp code" rows="7" spellcheck="false" maxlength="6000" autocomplete="off"
                     [value]="stepsText()" (input)="editSteps($any($event.target).value)"></textarea>
 
           @if (lastForm(); as f) {
@@ -167,7 +162,8 @@
             <button class="mini" (click)="restartTree()">Recomeçar</button>
           </div>
           <label class="lab mono" for="dv-tree">Notação: nó[filhos]. Ex.: R[S[a T[ε] b]]</label>
-          <textarea id="dv-tree" class="inp code" rows="3" spellcheck="false" maxlength="4000" autocomplete="off"
+          <app-sym-bar [target]="taTree" [syms]="[{ s: 'ε', label: 'vazio' }]" [typed]="['eps']" />
+          <textarea #taTree id="dv-tree" class="inp code" rows="3" spellcheck="false" maxlength="4000" autocomplete="off"
                     [value]="treeText()" (input)="editTree($any($event.target).value)"></textarea>
           @if (treeParse().error; as e) { <div class="msg err">{{ e }}</div> }
 

@@ -7,7 +7,7 @@ export interface Atividade extends PdfDoc {
   pages: number;
   size: string;
   topics: string[];
-  /** Seções da parte prática com a resolução comentada. */
+  /** Questões em Exercícios (/exercicios/<section>) com a resolução comentada. */
   solutions: { label: string; section: string }[];
 }
 
@@ -20,11 +20,11 @@ export const ATIVIDADES: Atividade[] = [
     subject: 'Gramáticas · Gramáticas Regulares',
     description: 'Derivação, palavras geradas e não geradas, sentença × forma sentencial, linguagem gerada e conversões entre gramática regular e autômato finito.',
     pages: 2,
-    size: '89 KB',
-    topics: ['derivação ⇒ / ⇒*', 'árvore', 'GR → AFD', 'AFD → GR', 'DTE'],
+    size: '95 KB',
+    topics: ['derivação ⇒ / ⇒*', 'árvore', 'GR → AFN', 'AFN → GR', 'DTE'],
     solutions: [
       { label: 'Gramáticas Q1–Q5', section: 'ex-gram-q1' },
-      { label: 'Regulares Q1', section: 'ex-gr-q1' },
+      { label: 'Regulares Q1–Q5', section: 'ex-gr-q1' },
     ],
   },
   {
@@ -38,7 +38,7 @@ export const ATIVIDADES: Atividade[] = [
     size: '88 KB',
     topics: ['mais à esquerda / direita', 'árvore', 'ambiguidade', 'ε-livre', 'construir G'],
     solutions: [
-      { label: 'Exercícios interativos Q1–Q12', section: 'ex-glc-q1' },
+      { label: 'GLC Q1–Q12', section: 'ex-glc-q1' },
     ],
   },
 ];
