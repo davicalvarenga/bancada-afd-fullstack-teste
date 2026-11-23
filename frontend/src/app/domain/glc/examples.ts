@@ -7,6 +7,8 @@ export interface GlcExample {
   grammar: string;
   transform: TransformKind;
   note: string;
+  /** Resultado visto em aula (pode ser parcial); o passo que coincidir com ele é destacado. */
+  classResult?: string;
 }
 
 export interface GlcExampleGroup { label: string; items: GlcExample[] }
@@ -50,10 +52,12 @@ export const GLC_EXAMPLE_GROUPS: GlcExampleGroup[] = [
     items: [
       { id: 'fat1', label: 'S → Ab | abaA, A → aab | aa', transform: 'factoring',
         grammar: 'S -> Ab | abaA\nA -> aab | aa',
-        note: 'Direta: A → aaA\', A\' → b | ε. Indireta: S → aS\', S\' → aA\'b | baA.' },
+        note: 'Direta: A → aaA\', A\' → b | ε. Indireta: S → aS\', S\' → aA\'b | baA.',
+        classResult: "S -> aS'\nS' -> aA'b | baA\nA -> aaA'\nA' -> b | ε" },
       { id: 'fat2', label: 'S → aA | aB | C, …', transform: 'factoring',
         grammar: 'S -> aA | aB | C\nA -> CA | a\nB -> bB | bC\nC -> aC | c',
-        note: 'C começa com a: S → aS\' | c, S\' → A | B | C, e as novas continuam sendo fatoradas.' },
+        note: 'C começa com a: S → aS\' | c, S\' → A | B | C, e as novas continuam sendo fatoradas.',
+        classResult: "S -> aS' | c\nS' -> A | B | C" },
       { id: 'fat3', label: 'S → bAS | a, A → SaA | SS | ab', transform: 'factoring',
         grammar: 'S -> bAS | a\nA -> SaA | SS | ab',
         note: 'Exige fatorar as variáveis novas várias vezes.' },

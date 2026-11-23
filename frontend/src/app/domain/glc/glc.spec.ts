@@ -8,7 +8,8 @@ import { strict as assert } from 'node:assert';
 import { Cfg, altsOf, parseCfg, prodKey, showCfg, showRhs, varSet } from './cfg';
 import { hasLeftRecursion, isLanguageEmpty, nullableInfo, prefixConflicts } from './analysis';
 import { checkCnf, checkEpsFree, checkGnf, checkLeftRecursion, compareUpTo, languageUpTo } from './checks';
-import { TransformResult, runTransform } from './transforms';
+import { CLASS_MATCH_FINAL, CLASS_MATCH_INTERMEDIATE, TransformResult, runTransform } from './transforms';
+import { GLC_EXAMPLES } from './examples';
 
 // ─────────────────────────── utilitários ───────────────────────────
 
@@ -176,9 +177,36 @@ test('fatoração: S → bAS | a, A → SaA | SS | ab (fatora as novas várias v
   const r = run('factoring', 'S -> bAS | a\nA -> SaA | SS | ab');
   assert.equal(prefixConflicts(r.result).length, 0);
   const created = r.steps.flatMap((s) => s.diff.newVars);
-  const refactored = r.steps.filter((s) => /^Fatoração (direta|indireta) em .*'/.test(s.title));
+  const refactored = r.steps.filter((s) => created.some((v) => s.title.startsWith(`Fatoração direta em ${v}`)
+    || s.title.startsWith(`Fatoração indireta em ${v}:`)));
   assert.ok(created.length >= 3 && refactored.length >= 2, 'as variáveis novas deveriam ser fatoradas de novo');
   assertEquivalent(r.input, r.result, 9);
+});
+
+test('nomes novos: A\', A\'\' e, a partir da terceira, A3, A4…', () => {
+  const r = run('factoring', 'S -> bAS | a\nA -> SaA | SS | ab');
+  const created = r.steps.flatMap((s) => s.diff.newVars);
+  assert.deepEqual(created.slice(0, 4), ["A'", "A''", 'A3', 'A4']);
+  assert.ok(created.every((v) => /^A('{1,2}|\d+)$/.test(v)), created.join(' '));
+  // A1 do usuário não vira A13: continua com apóstrofos
+  const u = run('left-recursion', "A1 -> A1a | b\nA1' -> c\nA1'' -> d");
+  assert.ok(u.result.vars.includes("A1'''"), u.result.vars.join(' '));
+});
+
+test('fatoração: passo que coincide com o resultado de aula é destacado', () => {
+  const ex2 = GLC_EXAMPLES.find((e) => e.id === 'fat2')!;
+  const r = runTransform('factoring', g(ex2.grammar), { classResult: g(ex2.classResult!) });
+  const marked = r.steps.filter((s) => s.highlight);
+  assert.equal(marked.length, 1);
+  assert.equal(marked[0].title, 'Fatoração direta em S');
+  assert.ok(marked[0].explanation.endsWith(CLASS_MATCH_INTERMEDIATE));
+  assert.ok(r.steps.indexOf(marked[0]) < r.steps.length - 1);
+
+  const ex1 = GLC_EXAMPLES.find((e) => e.id === 'fat1')!;
+  const r1 = runTransform('factoring', g(ex1.grammar), { classResult: g(ex1.classResult!) });
+  assert.equal(r1.steps[r1.steps.length - 1].highlight, CLASS_MATCH_FINAL);
+  // sem gabarito, nada é destacado
+  assert.equal(runTransform('factoring', g(ex2.grammar)).steps.filter((s) => s.highlight).length, 0);
 });
 
 test('fatoração: recusada quando há recursão à esquerda', () => {

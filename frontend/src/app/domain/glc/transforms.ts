@@ -3,7 +3,7 @@
  * transforma estouro de limite em aviso (resultado parcial) e avisa quando a
  * linguagem é vazia. É o único arquivo que a tela precisa chamar.
  */
-import { Cfg, GlcLimitError, Step, StepLog } from './cfg';
+import { Cfg, GlcLimitError, Step, StepLog, altsOf, rhsKey } from './cfg';
 import { hasLeftRecursion, isLanguageEmpty, leftRecursion } from './analysis';
 import { EMPTY_LANGUAGE_WARNING, removeEpsilon, removeUnits, removeUseless, simplify } from './simplify';
 import { removeLeftRecursion } from './left-recursion';
@@ -32,13 +32,38 @@ export interface TransformOptions {
   removeUseless: boolean;
   /** Fatoração: teto de iterações (substituições + fatorações). */
   maxIterations: number;
+  /**
+   * Fatoração: gramática (possivelmente parcial) obtida em aula. O primeiro passo em
+   * que cada variável dela tem exatamente as mesmas alternativas recebe um destaque.
+   */
+  classResult: Cfg | null;
 }
 
 export const DEFAULT_OPTIONS: TransformOptions = {
   epsFreeRecursion: false,
   removeUseless: false,
   maxIterations: DEFAULT_MAX_ITERATIONS,
+  classResult: null,
 };
+
+export const CLASS_MATCH_INTERMEDIATE =
+  'Resultado da fatoração em aula; os passos seguintes continuam fatorando as variáveis novas.';
+export const CLASS_MATCH_FINAL = 'Coincide com o resultado da fatoração em aula.';
+
+/** As variáveis de `ref` têm, em `g`, exatamente as mesmas alternativas (as demais variáveis não importam). */
+export function matchesPartial(g: Cfg, ref: Cfg): boolean {
+  const set = (x: Cfg, v: string) => altsOf(x, v).map(rhsKey).sort().join('\u0002');
+  const vars = ref.vars.filter((v) => altsOf(ref, v).length);
+  return vars.length > 0 && vars.every((v) => set(g, v) === set(ref, v));
+}
+
+/** Marca o primeiro passo que coincide com o resultado de aula (texto do passo + destaque). */
+function markClassResult(steps: Step[], ref: Cfg): void {
+  const i = steps.findIndex((s) => matchesPartial(s.grammar, ref));
+  if (i < 0) return;
+  const note = i < steps.length - 1 ? CLASS_MATCH_INTERMEDIATE : CLASS_MATCH_FINAL;
+  steps[i] = { ...steps[i], explanation: `${steps[i].explanation} ${note}`, highlight: note };
+}
 
 export interface TransformResult {
   kind: TransformKind;
@@ -71,6 +96,7 @@ export function runTransform(kind: TransformKind, input: Cfg, options: Partial<T
     return done(msg);
   }
 
+  let aborted = false;
   try {
     switch (kind) {
       case 'simplify': simplify(input, log); break;
@@ -92,7 +118,8 @@ export function runTransform(kind: TransformKind, input: Cfg, options: Partial<T
   } catch (e) {
     if (!(e instanceof GlcLimitError)) throw e;
     warn(e.message);
-    return done(null, true);
+    aborted = true;
   }
-  return done();
+  if (kind === 'factoring' && opts.classResult) markClassResult(log.steps, opts.classResult);
+  return done(null, aborted);
 }

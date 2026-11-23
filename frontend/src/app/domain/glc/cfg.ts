@@ -103,17 +103,39 @@ export function addVar(g: Cfg, name: string, alts: readonly string[][], after?: 
   if (at < 0) vars.push(name);
   else {
     at++;
-    while (at < vars.length && vars[at].startsWith(after!) && /^'+$/.test(vars[at].slice(after!.length))) at++;
+    // pula as irmãs já criadas (A', A'', A3…), para a nova ficar no fim da família
+    while (at < vars.length && vars[at].startsWith(after!) && /^('+|\d+)$/.test(vars[at].slice(after!.length))) at++;
     vars.splice(at, 0, name);
   }
   return makeCfg(g.start, vars, [...g.prods, ...alts.map((rhs) => ({ lhs: name, rhs }))]);
 }
 
-/** A', A'', A'''… sem colidir com nomes existentes. */
+/**
+ * Raiz da "família" de um nome: A'' → A; A3 → A quando A existe (A3 foi criada a partir de A).
+ * Nomes do usuário como A1 e A2 continuam sendo raiz de si mesmos.
+ */
+function familyRoot(name: string, used: ReadonlySet<string>): string {
+  const noPrimes = name.replace(/'+$/, '');
+  const m = /^([A-Z][a-z]*)(\d+)$/.exec(noPrimes);
+  return m && Number(m[2]) >= 3 && used.has(m[1]) ? m[1] : noPrimes;
+}
+
+/**
+ * Nova variável da família de `base`: A', A'' e, a partir da terceira, A3, A4…
+ * (sem colidir com nomes existentes). Se a raiz termina em dígito (A1), segue com
+ * apóstrofos (A1', A1'', A1'''), para não confundir A1 + 3 com A13.
+ */
 export function freshPrime(base: string, used: ReadonlySet<string>): string {
-  let n = base + "'";
-  while (used.has(n)) n += "'";
-  return n;
+  const root = familyRoot(base, used);
+  for (const c of [root + "'", root + "''"]) if (!used.has(c)) return c;
+  if (/\d$/.test(root)) {
+    let n = root + "'''";
+    while (used.has(n)) n += "'";
+    return n;
+  }
+  let i = 3;
+  while (used.has(root + i)) i++;
+  return root + i;
 }
 
 /** Prefixo + número (Y1, Y2…) sem colidir com nomes existentes. */
@@ -172,6 +194,8 @@ export interface Step {
   /** O que mudou em relação ao passo anterior. */
   diff: CfgDiff;
   warnings: string[];
+  /** Destaque do passo (ex.: coincide com o resultado visto em aula). */
+  highlight?: string;
 }
 
 export function diffCfg(before: Cfg, after: Cfg): CfgDiff {
