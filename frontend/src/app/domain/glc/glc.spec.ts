@@ -6,10 +6,10 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { Cfg, altsOf, parseCfg, prodKey, showCfg, showRhs, varSet } from './cfg';
-import { hasLeftRecursion, isLanguageEmpty, nullableInfo, prefixConflicts } from './analysis';
-import { checkCnf, checkEpsFree, checkGnf, checkLeftRecursion, compareUpTo, languageUpTo } from './checks';
-import { CLASS_MATCH_FINAL, CLASS_MATCH_INTERMEDIATE, TransformResult, runTransform } from './transforms';
-import { GLC_EXAMPLES } from './examples';
+import { hasLeftRecursion, isLanguageEmpty, nullableInfo, prefixConflicts, productiveRounds } from './analysis';
+import { checkCnf, checkEpsFree, checkForms, checkGnf, checkLeftRecursion, compareUpTo, languageUpTo } from './checks';
+import { CLASS_MATCH_FINAL, CLASS_MATCH_INTERMEDIATE, TransformKind, TransformResult, runTransform } from './transforms';
+import { GLC_EXAMPLES, GLC_EXAMPLE_GROUPS } from './examples';
 
 // ─────────────────────────── utilitários ───────────────────────────
 
@@ -195,18 +195,22 @@ test('nomes novos: A\', A\'\' e, a partir da terceira, A3, A4…', () => {
 
 test('fatoração: passo que coincide com o resultado de aula é destacado', () => {
   const ex2 = GLC_EXAMPLES.find((e) => e.id === 'fat2')!;
-  const r = runTransform('factoring', g(ex2.grammar), { classResult: g(ex2.classResult!) });
+  const r = runTransform('factoring', g(ex2.gramatica), { classResult: g(ex2.gabaritoAula!) });
   const marked = r.steps.filter((s) => s.highlight);
   assert.equal(marked.length, 1);
   assert.equal(marked[0].title, 'Fatoração direta em S');
   assert.ok(marked[0].explanation.endsWith(CLASS_MATCH_INTERMEDIATE));
   assert.ok(r.steps.indexOf(marked[0]) < r.steps.length - 1);
 
+  // F0: o gabarito de aula é só a fatoração direta de A (passo intermediário)
   const ex1 = GLC_EXAMPLES.find((e) => e.id === 'fat1')!;
-  const r1 = runTransform('factoring', g(ex1.grammar), { classResult: g(ex1.classResult!) });
-  assert.equal(r1.steps[r1.steps.length - 1].highlight, CLASS_MATCH_FINAL);
+  const r1 = runTransform('factoring', g(ex1.gramatica), { classResult: g(ex1.gabaritoAula!) });
+  assert.equal(r1.steps.find((s) => s.highlight)?.title, 'Fatoração direta em A');
+  // gabarito completo coincide com o último passo
+  const full = runTransform('factoring', g(ex1.gramatica), { classResult: g("S -> aS'\nS' -> aA'b | baA\nA -> aaA'\nA' -> b | ε") });
+  assert.equal(full.steps[full.steps.length - 1].highlight, CLASS_MATCH_FINAL);
   // sem gabarito, nada é destacado
-  assert.equal(runTransform('factoring', g(ex2.grammar)).steps.filter((s) => s.highlight).length, 0);
+  assert.equal(runTransform('factoring', g(ex2.gramatica)).steps.filter((s) => s.highlight).length, 0);
 });
 
 test('fatoração: recusada quando há recursão à esquerda', () => {
@@ -330,3 +334,74 @@ test('o resultado pode ser colado de volta (ida e volta pelo texto)', () => {
   assertEquivalent(r.result, g(showCfg(r.result)));
   assert.ok(sameUpToRenaming(r.result, g(showCfg(r.result))));
 });
+
+// ─────────────────────────── exercícios de aula (examples.ts) ───────────────────────────
+
+/** Resultado esperado da transformação sugerida, conferido pelo verificador de forma. */
+function formOk(kind: TransformKind, x: Cfg): boolean {
+  const f = checkForms(x);
+  switch (kind) {
+    case 'useless': return productiveRounds(x).productive.size === x.vars.filter((v) => altsOf(x, v).length).length;
+    case 'epsilon': return f.epsFree.ok;
+    case 'unit': return !x.prods.some((p) => p.rhs.length === 1 && varSet(x).has(p.rhs[0]));
+    case 'simplify': return f.epsFree.ok;
+    case 'left-recursion': return f.leftRecursion.ok;
+    case 'factoring': return f.commonPrefix.ok;
+    case 'cnf': return f.cnf.ok;
+    case 'gnf': return f.gnf.ok;
+  }
+}
+
+/** Respostas de referência (comparadas por equivalência até n, nunca por texto). */
+const REFERENCIAS: Record<string, { text: string; n: number }> = {
+  'rec-vazia': { n: 7, text: "S -> dBS' | BS'\nS' -> bS' | ε\nB -> bBB'\nB' -> dB' | ε" },
+  lista: { n: 9, text: "S -> [L] | a\nL -> SL'\nL' -> SL' | ε" },
+  fat2: { n: 7, text: "S -> aS' | c\nS' -> A | B | C\nA -> aA' | cA\nA' -> CA | ε\nB -> bB'\nB' -> B | C\nC -> aC | c" },
+  'fat-f2': { n: 7, text: "A -> bA' | ca\nA' -> Ba | a | ε\nB -> bB' | c\nB' -> B | ε" },
+  fat3: { n: 9, text: 'S -> bAS | a\nA -> bASA1 | aA2\nA1 -> aA3 | bAS\nA2 -> aA3 | bA4\nA3 -> A | ε\nA4 -> AS | ε' },
+  'fat-f4': { n: 7, text: "S -> AB\nA -> aA'\nA' -> Bc | ε\nB -> bB'\nB' -> Sa | ε" },
+  'cnf-c1': { n: 7, text: "S' -> AB\nS -> AB\nA -> XaY1 | a\nB -> XbY2 | b\nY1 -> BXc\nY2 -> SXa\nXa -> a\nXb -> b\nXc -> c" },
+  'cnf-c4': { n: 7, text: "R' -> XY1 | CaY2 | CaCb | CbY3 | CbCa\nR -> XY1 | CaY2 | CaCb | CbY3 | CbCa\nT -> XY4 | XX | a | b\nX -> a | b\nY1 -> RX\nY2 -> TCb\nY3 -> TCa\nY4 -> TX\nCa -> a\nCb -> b" },
+  'gnf-sabc': { n: 7, text: "S -> aB | aBB | bS | bSB | bB | bBB' | b\nB -> bBB' | bB\nB' -> aB' | a" },
+  'gnf-g3': { n: 9, text: "S -> bLXe | iXqE\nL -> bLXeL' | iXqEL' | bLXe | iXqE\nL' -> ;SL' | ;S\nE -> ¬EE' | ¬E | iE' | i\nE' -> ∨EE' | ∨E\nXe -> e\nXq -> =" },
+};
+const LINGUAGEM_VAZIA = new Set(['rec-vazia', 'gnf-g4', 'vazia']);
+const RECUSADOS = new Set(['fat-rec']);
+
+test('exemplos: ids únicos, agrupados por tópico na ordem pedida', () => {
+  assert.equal(new Set(GLC_EXAMPLES.map((e) => e.id)).size, GLC_EXAMPLES.length);
+  assert.deepEqual(GLC_EXAMPLE_GROUPS.map((x) => x.label), ['Simplificação', 'Recursão à esquerda', 'Fatoração', 'CNF', 'GNF']);
+  assert.equal(GLC_EXAMPLE_GROUPS.flatMap((x) => x.items).length, GLC_EXAMPLES.length);
+  for (const id of Object.keys(REFERENCIAS)) assert.ok(GLC_EXAMPLES.some((e) => e.id === id), id);
+});
+
+for (const ex of GLC_EXAMPLES) {
+  test(`exemplo ${ex.rotulo} (${ex.origem})`, () => {
+    const parsed = parseCfg(ex.gramatica);
+    assert.deepEqual(parsed.problems, [], 'o parser deve aceitar a gramática');
+    const input = parsed.grammar!;
+    const classResult = ex.gabaritoAula ? g(ex.gabaritoAula) : null;
+    const r = runTransform(ex.transformacao, input, { classResult });
+
+    if (RECUSADOS.has(ex.id)) {
+      assert.match(r.refused ?? '', /recursão à esquerda/);
+      assert.ok(r.warnings.some((w) => /recursão à esquerda/.test(w)));
+      return;
+    }
+    assert.equal(r.refused, null);
+    assert.equal(r.aborted, false, r.warnings.join(' | '));
+    assert.ok(r.steps.length > 0);
+    assert.ok(formOk(ex.transformacao, r.result), `forma de ${ex.transformacao} não atendida:\n${showCfg(r.result)}`);
+
+    if (LINGUAGEM_VAZIA.has(ex.id)) {
+      assert.ok(isLanguageEmpty(input));
+      assert.ok(r.warnings.some((w) => /Linguagem vazia/.test(w)), 'aviso de linguagem vazia');
+    } else {
+      assert.equal(isLanguageEmpty(input), false);
+      assertEquivalent(input, r.result, 7);
+    }
+    const ref = REFERENCIAS[ex.id];
+    if (ref) assertEquivalent(g(ref.text), r.result, ref.n);
+    if (classResult) assert.ok(r.steps.some((s) => s.highlight), 'o selo "em aula" deveria aparecer em algum passo');
+  });
+}

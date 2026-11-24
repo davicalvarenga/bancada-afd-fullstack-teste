@@ -103,8 +103,8 @@ export class GlcComponent {
 
   private readonly saved = load();
   readonly exampleId = signal(this.saved?.example ?? GLC_EXAMPLES[0].id);
-  readonly grammarText = signal(this.saved?.grammar ?? GLC_EXAMPLES[0].grammar);
-  readonly kind = signal<TransformKind>(this.saved?.kind ?? GLC_EXAMPLES[0].transform);
+  readonly grammarText = signal(this.saved?.grammar ?? GLC_EXAMPLES[0].gramatica);
+  readonly kind = signal<TransformKind>(this.saved?.kind ?? GLC_EXAMPLES[0].transformacao);
   readonly epsFree = signal(this.saved?.epsFree ?? false);
   readonly useless = signal(this.saved?.useless ?? false);
   readonly n = signal(this.saved?.n ?? DEFAULT_MAX_LEN);
@@ -112,7 +112,7 @@ export class GlcComponent {
   /** O exemplo só vale enquanto o texto não for editado ("personalizada" depois). */
   readonly example = computed(() => {
     const ex = GLC_EXAMPLES.find((e) => e.id === this.exampleId());
-    return ex && ex.grammar === this.grammarText() ? ex : null;
+    return ex && ex.gramatica === this.grammarText() ? ex : null;
   });
   readonly info = computed(() => TRANSFORMS.find((t) => t.id === this.kind())!);
 
@@ -128,7 +128,7 @@ export class GlcComponent {
     const g = this.parsed().grammar;
     if (!g) return { r: null, error: null };
     const ex = this.example();
-    const classResult = ex?.classResult ? parseCfg(ex.classResult).grammar : null;
+    const classResult = ex?.gabaritoAula ? parseCfg(ex.gabaritoAula).grammar : null;
     try {
       return { r: runTransform(this.kind(), g, { epsFreeRecursion: this.epsFree(), removeUseless: this.useless(), classResult }), error: null };
     } catch (e) {
@@ -176,8 +176,8 @@ export class GlcComponent {
     const ex = GLC_EXAMPLES.find((e) => e.id === id);
     this.exampleId.set(id);
     if (!ex) return; // "personalizada": mantém o texto
-    this.grammarText.set(ex.grammar);
-    this.kind.set(ex.transform);
+    this.grammarText.set(ex.gramatica);
+    this.kind.set(ex.transformacao); // abre a aba sugerida; tudo roda no navegador
   }
   editGrammar(v: string): void { this.grammarText.set(v); }
   setN(v: string): void {

@@ -21,17 +21,18 @@
       <select id="glc-ex" class="inp" (change)="selectExample($any($event.target).value)">
         @for (gr of groups; track gr.label) {
           <optgroup [label]="gr.label">
-            @for (ex of gr.items; track ex.id) { <option [value]="ex.id" [selected]="ex.id === example()?.id">{{ ex.label }}</option> }
+            @for (ex of gr.items; track ex.id) { <option [value]="ex.id" [selected]="ex.id === example()?.id">{{ ex.rotulo }}</option> }
           </optgroup>
         }
         <option value="" [selected]="!example()">Personalizada (gramática editada)</option>
       </select>
-      @if (example(); as ex) { <p class="hint">{{ ex.note }}</p> }
+      @if (example(); as ex) { <p class="hint">Origem: {{ ex.origem }}@if (ex.gabaritoAula) { · com gabarito de aula }</p> }
 
       <label class="lab mono" for="glc-g">Regras (uma variável por linha)</label>
       <app-sym-bar [target]="ta" [syms]="[{ s: 'ε', label: 'vazio' }, { s: '→' }]" [typed]="['eps', '&', '->']" />
       <textarea #ta id="glc-g" class="inp code" rows="7" spellcheck="false" maxlength="4000" autocomplete="off"
                 [value]="grammarText()" (input)="editGrammar($any($event.target).value)"></textarea>
+      @if (example()?.observacao; as obs) { <p class="obs" role="note">{{ obs }}</p> }
       <p class="hint">
         Neste módulo, <b>variável é letra maiúscula</b> com sufixos opcionais (<code>S'</code>, <code>A1</code>, <code>Xa</code>)
         e <b>qualquer outro caractere é um terminal</b> (<code>a</code>, <code>+</code>, <code>(</code>, <code>¬</code>…).

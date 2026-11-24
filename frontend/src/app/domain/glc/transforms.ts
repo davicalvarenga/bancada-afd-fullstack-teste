@@ -49,19 +49,61 @@ export const DEFAULT_OPTIONS: TransformOptions = {
 export const CLASS_MATCH_INTERMEDIATE =
   'Resultado da fatoração em aula; os passos seguintes continuam fatorando as variáveis novas.';
 export const CLASS_MATCH_FINAL = 'Coincide com o resultado da fatoração em aula.';
+export const CLASS_MATCH_INTERMEDIATE_OTHER =
+  'Coincide com o resultado visto em aula; os passos seguintes continuam a transformação.';
+export const CLASS_MATCH_FINAL_OTHER = 'Coincide com o resultado visto em aula.';
 
-/** As variáveis de `ref` têm, em `g`, exatamente as mesmas alternativas (as demais variáveis não importam). */
-export function matchesPartial(g: Cfg, ref: Cfg): boolean {
-  const set = (x: Cfg, v: string) => altsOf(x, v).map(rhsKey).sort().join('\u0002');
-  const vars = ref.vars.filter((v) => altsOf(ref, v).length);
-  return vars.length > 0 && vars.every((v) => set(g, v) === set(ref, v));
+const MAX_RENAMED = 4;
+const altSet = (x: Cfg, v: string, ren: (s: string) => string = (s) => s) =>
+  altsOf(x, v).map((r) => rhsKey(r.map(ren))).sort().join('\u0002');
+
+/**
+ * Cada variável de `ref` tem, em `g`, exatamente as mesmas alternativas. As variáveis
+ * que não existiam na entrada (criadas pela transformação: S', Xa, Y1…) podem ter
+ * nome diferente no gabarito (S', X, Y'): tenta-se renomeá-las, de forma injetiva.
+ * Com `full`, `g` também não pode ter variáveis com regras além das de `ref`.
+ */
+export function matchesPartial(g: Cfg, ref: Cfg, input?: Cfg, full = false): boolean {
+  const refVars = ref.vars.filter((v) => altsOf(ref, v).length);
+  if (!refVars.length) return false;
+  const gVars = g.vars.filter((v) => altsOf(g, v).length);
+  if (full && gVars.length !== refVars.length) return false;
+  const old = new Set(input?.vars ?? []);
+  const refNew = ref.vars.filter((v) => !old.has(v));
+  const gNew = g.vars.filter((v) => !old.has(v));
+  const test = (m: Map<string, string>) => {
+    const ren = (s: string) => m.get(s) ?? s;
+    return refVars.every((v) => altSet(g, ren(v)) === altSet(ref, v, ren));
+  };
+  if (test(new Map())) return true;
+  if (!input || !refNew.length || refNew.length > MAX_RENAMED || refNew.length > gNew.length) return false;
+  // tentativas de renomeação: cada variável nova do gabarito ↔ uma variável nova distinta da bancada
+  const tryFrom = (i: number, m: Map<string, string>, used: Set<string>): boolean => {
+    if (i === refNew.length) return test(m);
+    for (const t of gNew) {
+      if (used.has(t)) continue;
+      m.set(refNew[i], t); used.add(t);
+      if (tryFrom(i + 1, m, used)) return true;
+      m.delete(refNew[i]); used.delete(t);
+    }
+    return false;
+  };
+  return tryFrom(0, new Map(), new Set());
 }
 
-/** Marca o primeiro passo que coincide com o resultado de aula (texto do passo + destaque). */
-function markClassResult(steps: Step[], ref: Cfg): void {
-  const i = steps.findIndex((s) => matchesPartial(s.grammar, ref));
+/**
+ * Marca o passo que coincide com o resultado de aula (texto do passo + destaque).
+ * Prefere o primeiro passo em que a gramática INTEIRA coincide; se o gabarito for
+ * parcial (só algumas variáveis), vale o primeiro passo em que elas coincidem.
+ */
+function markClassResult(kind: TransformKind, steps: Step[], ref: Cfg, input: Cfg): void {
+  let i = steps.findIndex((s) => matchesPartial(s.grammar, ref, input, true));
+  if (i < 0) i = steps.findIndex((s) => matchesPartial(s.grammar, ref, input));
   if (i < 0) return;
-  const note = i < steps.length - 1 ? CLASS_MATCH_INTERMEDIATE : CLASS_MATCH_FINAL;
+  const last = i === steps.length - 1;
+  const note = kind === 'factoring'
+    ? (last ? CLASS_MATCH_FINAL : CLASS_MATCH_INTERMEDIATE)
+    : (last ? CLASS_MATCH_FINAL_OTHER : CLASS_MATCH_INTERMEDIATE_OTHER);
   steps[i] = { ...steps[i], explanation: `${steps[i].explanation} ${note}`, highlight: note };
 }
 
@@ -120,6 +162,6 @@ export function runTransform(kind: TransformKind, input: Cfg, options: Partial<T
     warn(e.message);
     aborted = true;
   }
-  if (kind === 'factoring' && opts.classResult) markClassResult(log.steps, opts.classResult);
+  if (opts.classResult) markClassResult(kind, log.steps, opts.classResult, input);
   return done(null, aborted);
 }
