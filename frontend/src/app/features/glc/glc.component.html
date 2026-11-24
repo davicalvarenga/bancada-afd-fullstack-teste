@@ -107,7 +107,7 @@
           <div aria-live="polite">
             @if (report(); as rep) {
               <div class="verdict" [attr.data-v]="rep.verdict">
-                {{ verdictLabel(rep) }}
+                {{ verdictLabel(rep, kind()) }}
               </div>
               @for (pr of rep.parseProblems; track $index) {
                 <div class="msg err">@if (pr.line) { <b class="mono">linha {{ pr.line }}</b> } {{ pr.message }}</div>

@@ -57,7 +57,8 @@ for (const [id, resposta] of Object.entries(RESPOSTAS_AULA)) {
 test('treino: F1 com S\' -> A | B | C passa com aviso de prefixo indireto', () => {
   const r = corrigir('fat2', RESPOSTAS_AULA.fat2);
   assert.equal(r.verdict, 'pleno');
-  assert.ok(avisos(r).some((m) => m.startsWith("S' → A e S' → C: só depois de substituir a variável inicial")), avisos(r).join('\n'));
+  assert.deepEqual(avisos(r), ["S' → A e S' → C: A e C podem começar com a ou c; S' é variável nova, e na fatoração como em aula a substituição fica de fora (não reprova)."]);
+  assert.deepEqual(erros(r), []);
 });
 
 test('treino: resposta igual à da bancada (com nomes diferentes) é reconhecida', () => {
@@ -178,4 +179,40 @@ test('treino: comparação usa a opção de fatoração selecionada', () => {
   // mesma resposta: igual à resolução "completa", diferente da "como em aula"
   assert.equal(checkAnswer('factoring', original, resposta, { bancada: completa }).comparison, 'bancada');
   assert.equal(checkAnswer('factoring', original, resposta, { bancada: aula }).comparison, 'diferente');
+});
+
+// ─────────────────────────── critério do prefixo indireto ───────────────────────────
+
+test('treino: F1 com prefixo indireto em variáveis originais reprova com 2 erros (S e A)', () => {
+  const r = corrigir('fat2', "S -> aS' | C\nS' -> A | B\nA -> CA | a\nB -> bB'\nB' -> B | C\nC -> aC | c");
+  assert.deepEqual(erros(r), [
+    "S → aS' e S → C: C pode começar com a. Substitua C e fatore (fatoração indireta).",
+    'A → CA e A → a: C pode começar com a. Substitua C e fatore (fatoração indireta).',
+  ]);
+  assert.equal(r.formOk, false);
+  assert.equal(r.verdict, 'pendente');
+});
+
+test('treino: gabarito de aula de F1 passa com 1 aviso (em S\')', () => {
+  const r = corrigir('fat2', RESPOSTAS_AULA.fat2);
+  assert.equal(avisos(r).length, 1);
+  assert.ok(avisos(r)[0].startsWith("S' → A e S' → C"));
+  assert.equal(r.verdict, 'pleno');
+});
+
+test('treino: prefixo indireto em variável nova é ERRO na fatoração completa', () => {
+  const e = ex('fat2');
+  const r = checkAnswer('factoring', g(e.gramatica), RESPOSTAS_AULA.fat2, { factoringMode: 'completa' });
+  assert.deepEqual(avisos(r), []);
+  assert.deepEqual(erros(r), ["S' → A e S' → C: A e C podem começar com a ou c. Substitua A e C e fatore (fatoração indireta)."]);
+  assert.equal(r.verdict, 'pendente'); // equivalente, mas a fatoração está incompleta
+  assert.equal(r.language?.status, 'equivalente');
+});
+
+test('treino: F0 continua passando nas duas opções', () => {
+  for (const factoringMode of ['aula', 'completa'] as const) {
+    const e = ex('fat1');
+    const r = checkAnswer('factoring', g(e.gramatica), RESPOSTAS_AULA.fat1, { factoringMode });
+    assert.equal(r.verdict, 'pleno', factoringMode);
+  }
 });

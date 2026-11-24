@@ -25,7 +25,7 @@
  * Pré-condição: sem recursão à esquerda (senão a substituição não termina). O
  * chamador recusa a transformação e avisa.
  */
-import { Cfg, GlcLimitError, Prod, StepLog, addVar, altsOf, freshPrime, makeCfg, rhsKey, setAlts, showRhs, varSet } from './cfg';
+import { Cfg, GlcLimitError, Prod, StepLog, addVar, altsOf, familyRoot, freshPrime, makeCfg, rhsKey, setAlts, showRhs, varSet } from './cfg';
 import { bottomUpOrder, firstOfSeq, firstSets, nullableInfo, prefixConflicts } from './analysis';
 
 export const FACTORING_CRITERION =
@@ -66,12 +66,38 @@ function unifyIdentical(g: Cfg, createdOrder: readonly string[], log: StepLog): 
     merged.push(`${drop} → ${keep}`);
   }
   if (!merged.length) return g;
+
+  // renumera as que sobraram, por família e em ordem de criação, sem buracos (A', A'', A3, A4…)
+  const survivors = createdOrder.filter((v) => cur.vars.includes(v));
+  const all = new Set(g.vars);
+  const reserved = new Set(cur.vars.filter((v) => !survivors.includes(v)));
+  const byRoot = new Map<string, string[]>();
+  for (const v of survivors) {
+    const root = familyRoot(v, all);
+    byRoot.set(root, [...(byRoot.get(root) ?? []), v]);
+  }
+  const rename = new Map<string, string>();
+  for (const [root, members] of byRoot) {
+    const taken = new Set(reserved);
+    for (const v of members) {
+      const name = freshPrime(root, taken); // mesma sequência da criação, pulando nomes ocupados
+      taken.add(name);
+      if (name !== v) rename.set(v, name);
+    }
+  }
+  const renumbered: string[] = [];
+  if (rename.size) {
+    const ren = (x: string) => rename.get(x) ?? x;
+    cur = makeCfg(cur.start, cur.vars.map(ren), cur.prods.map((p) => ({ lhs: ren(p.lhs), rhs: p.rhs.map(ren) })));
+    for (const [from, to] of rename) renumbered.push(`${from} → ${to}`);
+  }
   return log.push(
     'Unificar variáveis novas idênticas',
     'Variáveis criadas pela fatoração com o mesmo conjunto de alternativas geram a mesma coisa: fica só a mais antiga, '
-      + 'e as referências às outras passam a apontar para ela.',
+      + 'e as referências às outras passam a apontar para ela.'
+      + (renumbered.length ? ' Depois, as variáveis novas são renumeradas em sequência, sem buracos.' : ''),
     cur,
-    [{ label: 'Removida → mantida', items: merged }],
+    [{ label: 'Removida → mantida', items: merged }, ...(renumbered.length ? [{ label: 'Renumeração', items: renumbered }] : [])],
   );
 }
 

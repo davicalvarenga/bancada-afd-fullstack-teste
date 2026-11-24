@@ -462,3 +462,12 @@ test('ordem de exibição: partida, originais na ordem da entrada, novas após a
   assert.deepEqual(run('epsilon', 'S -> bCDe | DC\nD -> dD | ε\nC -> cD | ε').result.vars, ["S'", 'S', 'D', 'C']);
   assert.deepEqual(run('left-recursion', ETF).result.vars, ['E', "E'", 'T', "T'", 'F']);
 });
+
+test('fatoração completa: F3 sem buracos de numeração depois de unificar', () => {
+  const r = run('factoring', 'S -> bAS | a\nA -> SaA | SS | ab', { factoringMode: 'completa' });
+  const last = r.steps[r.steps.length - 1];
+  assert.equal(last.title, 'Unificar variáveis novas idênticas');
+  assert.deepEqual(last.sets.find((x) => x.label === 'Renumeração')?.items, ['A5 → A4']);
+  assert.deepEqual(r.result.vars, ['S', 'A', "A'", "A''", 'A3', 'A4']);
+  assertEquivalent(r.input, r.result, 9);
+});

@@ -3,7 +3,7 @@ import { RouterLink } from '@angular/router';
 import { SiteNavComponent } from '../../shared/site-nav.component';
 import { SymBarComponent } from '../../shared/sym-bar.component';
 import { ThemeService } from '../../core/services/theme.service';
-import { Cfg, Step, cfgLines, parseCfg, prodKey, showCfg, showProd, showRhs, terminalsOf } from '../../domain/glc/cfg';
+import { Cfg, Step, altsOf, cfgLines, parseCfg, prodKey, showCfg, showProd, showRhs, terminalsOf } from '../../domain/glc/cfg';
 import { DEFAULT_MAX_LEN, EquivalenceReport, FormCheck, checkForms, compareUpTo } from '../../domain/glc/checks';
 import { TRANSFORMS, TransformKind, TransformResult, runTransform } from '../../domain/glc/transforms';
 import { GLC_EXAMPLES, GLC_EXAMPLE_GROUPS } from '../../domain/glc/examples';
@@ -63,11 +63,32 @@ function loadTreino(): TreinoStore {
 }
 
 /** Veredito do treino. Nunca diz "correta": equivalência até n não é prova. */
-function verdictLabel(rep: PracticeReport): string {
+function verdictLabel(rep: PracticeReport, kind: TransformKind): string {
   if (rep.parseProblems.length) return 'A resposta não pôde ser lida.';
   if (rep.verdict === 'pleno') return `✓ Forma válida e equivalente à gramática original até n = ${rep.language?.maxLen}.`;
   if (rep.verdict === 'parcial') return 'Forma válida; linguagem não verificável.';
+  if (!rep.formOk && rep.language?.status === 'equivalente') {
+    return kind === 'factoring' ? 'Equivalente, mas a fatoração está incompleta.' : 'Equivalente, mas a forma pedida ainda tem erros.';
+  }
   return 'Ainda há o que corrigir.';
+}
+
+/**
+ * Recalcula os ✓ salvos com o critério atual (as respostas ficam como estão). Usa a
+ * transformação sugerida de cada exercício e o n e o modo de fatoração salvos.
+ */
+function recheckSaved(store: TreinoStore, n: number, factoringMode: FactoringMode): TreinoStore {
+  const respostas: Record<string, TreinoEntry> = {};
+  for (const [id, e] of Object.entries(store.respostas)) {
+    const ex = GLC_EXAMPLES.find((x) => x.id === id);
+    const original = ex ? parseCfg(ex.gramatica).grammar : null;
+    let ok = false;
+    if (ex && original && e.resposta.trim()) {
+      try { ok = checkAnswer(ex.transformacao, original, e.resposta, { n, factoringMode }).verdict === 'pleno'; } catch { ok = false; }
+    }
+    respostas[id] = { resposta: e.resposta, ok };
+  }
+  return { ...store, respostas };
 }
 
 const braces = (xs: readonly string[]) => `{${xs.join(', ')}}`;
@@ -200,7 +221,12 @@ export class GlcComponent {
       { label: 'ε-livre', kinds: ['epsilon', 'simplify'], input: fromCheck(a.epsFree), output: fromCheck(b.epsFree) },
       { label: 'Sem produções simples', kinds: ['unit', 'simplify'], input: fromIssues(formIssues('unit', r.input)), output: fromIssues(formIssues('unit', r.result)) },
       { label: 'Sem recursão à esquerda', kinds: ['left-recursion'], input: fromCheck(a.leftRecursion), output: fromCheck(b.leftRecursion) },
-      { label: 'Sem prefixo comum (indireto = aviso)', kinds: ['factoring'], input: fromIssues(formIssues('factoring', r.input)), output: fromIssues(formIssues('factoring', r.result)) },
+      {
+        // mesmo critério do treino: indireto em variável original = erro; em variável nova, depende do modo
+        label: 'Sem prefixo comum', kinds: ['factoring'],
+        input: fromIssues(formIssues('factoring', r.input)),
+        output: fromIssues(formIssues('factoring', r.result, { originals: new Set(r.input.vars.filter((v) => altsOf(r.input, v).length)), factoringMode: this.factoringMode() })),
+      },
       { label: 'Forma Normal de Chomsky', kinds: ['cnf'], input: fromCheck(a.cnf), output: fromCheck(b.cnf) },
       { label: 'Forma Normal de Greibach', kinds: ['gnf'], input: fromCheck(a.gnf), output: fromCheck(b.gnf) },
     ];
@@ -214,7 +240,7 @@ export class GlcComponent {
   readonly words = words;
 
   // ─── modo treino ───
-  private readonly treinoStore = signal<TreinoStore>(loadTreino());
+  private readonly treinoStore = signal<TreinoStore>(recheckSaved(loadTreino(), this.n(), this.factoringMode()));
   readonly treino = computed(() => this.treinoStore().ativo);
   readonly answer = signal(this.treinoStore().respostas[this.exampleId()]?.resposta ?? '');
   readonly report = signal<PracticeReport | null>(null);
@@ -282,7 +308,7 @@ export class GlcComponent {
     const ex = this.example();
     const r = this.run().r;
     const gabarito = ex?.gabaritoAula && ex.transformacao === this.kind() ? parseCfg(ex.gabaritoAula).grammar : null;
-    const rep = checkAnswer(this.kind(), g, this.answer(), { n: this.n(), bancada: r && !r.refused ? r.result : null, gabarito });
+    const rep = checkAnswer(this.kind(), g, this.answer(), { n: this.n(), bancada: r && !r.refused ? r.result : null, gabarito, factoringMode: this.factoringMode() });
     this.report.set(rep);
     if (ex) this.saveAnswer(ex.id, { resposta: this.answer(), ok: rep.verdict === 'pleno' });
   }

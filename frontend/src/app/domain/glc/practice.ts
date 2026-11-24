@@ -18,6 +18,7 @@ import { Cfg, ParseProblem, altsOf, parseCfg, showProd, showRhs, varSet } from '
 import { isLanguageEmpty, nullableInfo, prefixConflicts, productiveRounds } from './analysis';
 import { DEFAULT_MAX_LEN, checkCnf, checkEpsFree, checkGnf, checkLeftRecursion, compareUpTo } from './checks';
 import { TransformKind, matchesPartial } from './transforms';
+import { FactoringMode } from './factoring';
 
 export type Severity = 'erro' | 'aviso';
 export interface PracticeIssue { severity: Severity; message: string }
@@ -77,15 +78,43 @@ function unitIssues(g: Cfg): PracticeIssue[] {
   return g.prods.filter((p) => p.rhs.length === 1 && vs.has(p.rhs[0])).map((p) => erro(`${showProd(p)}: produção simples (A → B).`));
 }
 
-function factoringIssues(g: Cfg): PracticeIssue[] {
-  return prefixConflicts(g).map((c) => (c.kind === 'direta'
-    ? erro(`${c.lhs} → ${showRhs(c.a)} e ${c.lhs} → ${showRhs(c.b)}: prefixo comum visível (${c.common[0]}…).`)
-    : aviso(`${c.lhs} → ${showRhs(c.a)} e ${c.lhs} → ${showRhs(c.b)}: só depois de substituir a variável inicial `
-      + `ambas podem começar com {${c.common.join(', ')}} (fatoração indireta; não reprova).`)));
+export interface FormContext {
+  /**
+   * Variáveis originais (lado esquerdo presente na gramática do exercício). Sem isto,
+   * todas as variáveis contam como originais.
+   */
+  originals?: ReadonlySet<string>;
+  /** Modo da fatoração; o padrão da tela é 'aula'. */
+  factoringMode?: FactoringMode;
+}
+
+const joinList = (xs: readonly string[], last: string) =>
+  (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} ${last} ${xs[xs.length - 1]}`);
+
+/**
+ * Critério do prefixo comum:
+ *  - visível (mesmo primeiro símbolo) = ERRO sempre;
+ *  - indireto em variável ORIGINAL = ERRO (nos dois modos);
+ *  - indireto em variável NOVA = AVISO em "como em aula", ERRO em "completa".
+ */
+function factoringIssues(g: Cfg, ctx: FormContext): PracticeIssue[] {
+  const vs = varSet(g);
+  const mode = ctx.factoringMode ?? 'aula';
+  const isOriginal = (v: string) => !ctx.originals || ctx.originals.has(v);
+  return prefixConflicts(g).map((c) => {
+    const pair = `${c.lhs} → ${showRhs(c.a)} e ${c.lhs} → ${showRhs(c.b)}`;
+    if (c.kind === 'direta') return erro(`${pair}: prefixo comum visível (${c.common[0]}…).`);
+    const heads = [...new Set([c.a[0], c.b[0]].filter((s) => vs.has(s)))];
+    const what = `${joinList(heads, 'e')} ${heads.length > 1 ? 'podem' : 'pode'} começar com ${joinList(c.common, 'ou')}`;
+    if (isOriginal(c.lhs) || mode === 'completa') {
+      return erro(`${pair}: ${what}. Substitua ${joinList(heads, 'e')} e fatore (fatoração indireta).`);
+    }
+    return aviso(`${pair}: ${what}; ${c.lhs} é variável nova, e na fatoração como em aula a substituição fica de fora (não reprova).`);
+  });
 }
 
 /** Exigências de forma de cada transformação, com mensagem por alternativa. */
-export function formIssues(kind: TransformKind, g: Cfg): PracticeIssue[] {
+export function formIssues(kind: TransformKind, g: Cfg, ctx: FormContext = {}): PracticeIssue[] {
   const fromCheck = (v: string[]) => v.map(erro);
   switch (kind) {
     case 'useless': return uselessIssues(g);
@@ -93,7 +122,7 @@ export function formIssues(kind: TransformKind, g: Cfg): PracticeIssue[] {
     case 'unit': return unitIssues(g);
     case 'simplify': return [...fromCheck(checkEpsFree(g).violations), ...unitIssues(g), ...uselessIssues(g)];
     case 'left-recursion': return fromCheck(checkLeftRecursion(g).violations);
-    case 'factoring': return factoringIssues(g);
+    case 'factoring': return factoringIssues(g, ctx);
     case 'cnf': return fromCheck(checkCnf(g).violations);
     case 'gnf': return fromCheck(checkGnf(g).violations);
   }
@@ -106,6 +135,8 @@ export interface PracticeOptions {
   bancada?: Cfg | null;
   /** Gabarito de aula (pode ser parcial). */
   gabarito?: Cfg | null;
+  /** Modo da fatoração usado na resolução (padrão: 'aula', como na tela). */
+  factoringMode?: FactoringMode;
 }
 
 export function checkAnswer(kind: TransformKind, original: Cfg, answerText: string, opts: PracticeOptions = {}): PracticeReport {
@@ -118,7 +149,8 @@ export function checkAnswer(kind: TransformKind, original: Cfg, answerText: stri
   const answer = parsed.grammar;
   if (!answer) return base;
 
-  const issues = formIssues(kind, answer);
+  const originals = new Set(original.vars.filter((v) => altsOf(original, v).length));
+  const issues = formIssues(kind, answer, { originals, factoringMode: opts.factoringMode ?? 'aula' });
   const formOk = !issues.some((i) => i.severity === 'erro');
 
   // linguagem
