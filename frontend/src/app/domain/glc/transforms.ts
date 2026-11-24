@@ -83,6 +83,11 @@ export function displayOrder(g: Cfg, originals: readonly string[]): Cfg {
   return { start: g.start, vars: out, prods: g.prods };
 }
 
+export const NO_COMPLETE_FACTORING =
+  "Esta gramática não admite fatoração completa: o processo não termina. Use o modo 'como em aula'.";
+export const STAGE_RECURSION = 'Etapa 1: retirar a recursão à esquerda';
+export const STAGE_FACTORING = 'Etapa 2: fatorar a gramática resultante';
+
 export const CLASS_MATCH_INTERMEDIATE =
   'Resultado da fatoração em aula; os passos seguintes continuam fatorando as variáveis novas.';
 export const CLASS_MATCH_FINAL = 'Coincide com o resultado da fatoração em aula.';
@@ -197,9 +202,39 @@ export function runTransform(kind: TransformKind, input: Cfg, options: Partial<T
   } catch (e) {
     if (!(e instanceof GlcLimitError)) throw e;
     warn(e.message);
+    if (kind === 'factoring' && opts.factoringMode === 'completa') warn(NO_COMPLETE_FACTORING);
     aborted = true;
   }
   if (opts.classResult) markClassResult(kind, log.steps, opts.classResult, input);
   for (let i = 0; i < log.steps.length; i++) log.steps[i] = { ...log.steps[i], grammar: displayOrder(log.steps[i].grammar, input.vars) };
   return { ...done(null, aborted), result: displayOrder(log.current, input.vars) };
+}
+
+/**
+ * Fatoração com a resolução que a aba mostra. Sem recursão à esquerda, é a própria
+ * fatoração. Com recursão (que a fatoração recusa), a resolução tem duas etapas:
+ * 1) retirar a recursão à esquerda; 2) fatorar a gramática resultante, na opção
+ * escolhida. Os algoritmos não mudam: é só a composição das duas transformações.
+ */
+export function resolveFactoring(input: Cfg, options: Partial<TransformOptions> = {}): TransformResult {
+  const direct = runTransform('factoring', input, options);
+  if (!direct.refused) return direct;
+  const recursion = runTransform('left-recursion', input, { ...options, classResult: null });
+  const factoring = runTransform('factoring', recursion.result, options);
+  if (factoring.refused) return direct; // recursão escondida que a etapa 1 não remove: fica a recusa
+  const warnings: string[] = [];
+  for (const w of [...direct.warnings, ...recursion.warnings, ...factoring.warnings]) if (!warnings.includes(w)) warnings.push(w);
+  const order = (g: Cfg) => displayOrder(g, input.vars);
+  return {
+    kind: 'factoring',
+    input,
+    steps: [
+      ...recursion.steps.map((s) => ({ ...s, grammar: order(s.grammar), stage: STAGE_RECURSION })),
+      ...factoring.steps.map((s) => ({ ...s, grammar: order(s.grammar), stage: STAGE_FACTORING })),
+    ],
+    result: order(factoring.result),
+    warnings,
+    refused: null,
+    aborted: factoring.aborted,
+  };
 }

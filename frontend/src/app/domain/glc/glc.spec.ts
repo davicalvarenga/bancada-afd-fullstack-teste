@@ -8,7 +8,8 @@ import { strict as assert } from 'node:assert';
 import { Cfg, altsOf, parseCfg, prodKey, showCfg, showRhs, varSet } from './cfg';
 import { hasLeftRecursion, isLanguageEmpty, nullableInfo, prefixConflicts, productiveRounds } from './analysis';
 import { checkCnf, checkEpsFree, checkForms, checkGnf, checkLeftRecursion, compareUpTo, languageUpTo } from './checks';
-import { CLASS_MATCH_FINAL, CLASS_MATCH_INTERMEDIATE, TransformKind, TransformResult, runTransform } from './transforms';
+import { CLASS_MATCH_FINAL, CLASS_MATCH_INTERMEDIATE, NO_COMPLETE_FACTORING, STAGE_FACTORING, STAGE_RECURSION, TransformKind, TransformResult, resolveFactoring, runTransform } from './transforms';
+import { formIssues } from './practice';
 import { GLC_EXAMPLES, GLC_EXAMPLE_GROUPS } from './examples';
 
 // ─────────────────────────── utilitários ───────────────────────────
@@ -470,4 +471,31 @@ test('fatoração completa: F3 sem buracos de numeração depois de unificar', (
   assert.deepEqual(last.sets.find((x) => x.label === 'Renumeração')?.items, ['A5 → A4']);
   assert.deepEqual(r.result.vars, ['S', 'A', "A'", "A''", 'A3', 'A4']);
   assertEquivalent(r.input, r.result, 9);
+});
+
+// ─────────────────────────── F5: recursão à esquerda + fatoração (duas etapas) ───────────────────────────
+
+const F5 = 'S -> A | B | AB\nA -> aB | bS | b\nB -> bB | Ba | C\nC -> AS | AB | b';
+
+test('F5 como em aula: duas etapas, sem recursão e sem erro de prefixo em variável original', () => {
+  const input = g(F5);
+  const r = resolveFactoring(input, { factoringMode: 'aula' });
+  assert.equal(r.refused, null);
+  assert.equal(r.aborted, false);
+  assert.ok(r.warnings.some((w) => /recursão à esquerda/.test(w)), 'mantém o aviso de recursão');
+  assert.ok(r.steps.some((s) => s.stage === STAGE_RECURSION) && r.steps.some((s) => s.stage === STAGE_FACTORING));
+  assert.equal(r.steps.findIndex((s) => s.stage === STAGE_FACTORING), r.steps.filter((s) => s.stage === STAGE_RECURSION).length);
+  assert.equal(hasLeftRecursion(r.result), false);
+  const originals = new Set(input.vars);
+  assert.deepEqual(formIssues('factoring', r.result, { originals, factoringMode: 'aula' }).filter((i) => i.severity === 'erro'), []);
+  assertEquivalent(input, r.result, 7);
+  // a fatoração sozinha continua recusando (comportamento aprovado)
+  assert.ok(runTransform('factoring', input).refused);
+});
+
+test('F5 completa: atinge o limite com o aviso de fatoração completa impossível, sem exceção', () => {
+  const r = resolveFactoring(g(F5), { factoringMode: 'completa' });
+  assert.equal(r.aborted, true);
+  assert.ok(r.warnings.includes(NO_COMPLETE_FACTORING), r.warnings.join('\n'));
+  assert.ok(r.steps.length > 0);
 });

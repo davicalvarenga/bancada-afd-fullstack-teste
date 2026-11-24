@@ -17,7 +17,7 @@
 import { Cfg, ParseProblem, altsOf, parseCfg, showProd, showRhs, varSet } from './cfg';
 import { isLanguageEmpty, nullableInfo, prefixConflicts, productiveRounds } from './analysis';
 import { DEFAULT_MAX_LEN, checkCnf, checkEpsFree, checkGnf, checkLeftRecursion, compareUpTo } from './checks';
-import { TransformKind, matchesPartial } from './transforms';
+import { NO_COMPLETE_FACTORING, TransformKind, TransformOptions, matchesPartial, resolveFactoring } from './transforms';
 import { FactoringMode } from './factoring';
 
 export type Severity = 'erro' | 'aviso';
@@ -122,7 +122,8 @@ export function formIssues(kind: TransformKind, g: Cfg, ctx: FormContext = {}): 
     case 'unit': return unitIssues(g);
     case 'simplify': return [...fromCheck(checkEpsFree(g).violations), ...unitIssues(g), ...uselessIssues(g)];
     case 'left-recursion': return fromCheck(checkLeftRecursion(g).violations);
-    case 'factoring': return factoringIssues(g, ctx);
+    // a resposta da fatoração também não pode ter recursão à esquerda (F5: retirar antes de fatorar)
+    case 'factoring': return [...fromCheck(checkLeftRecursion(g).violations), ...factoringIssues(g, ctx)];
     case 'cnf': return fromCheck(checkCnf(g).violations);
     case 'gnf': return fromCheck(checkGnf(g).violations);
   }
@@ -137,13 +138,31 @@ export interface PracticeOptions {
   gabarito?: Cfg | null;
   /** Modo da fatoração usado na resolução (padrão: 'aula', como na tela). */
   factoringMode?: FactoringMode;
+  /** Avisos extras mostrados junto da correção. */
+  notes?: string[];
+}
+
+/**
+ * Base de comparação do treino na fatoração: a resolução da opção escolhida. Se a
+ * "completa" não termina (limite atingido), o treino usa a resolução "como em aula"
+ * e o critério dela, com o aviso correspondente.
+ */
+export function factoringBasis(input: Cfg, options: Partial<TransformOptions> = {}):
+  { factoringMode: FactoringMode; bancada: Cfg; notes: string[] } {
+  const mode = options.factoringMode ?? 'aula';
+  const r = resolveFactoring(input, { ...options, factoringMode: mode });
+  if (mode === 'completa' && r.aborted) {
+    const aula = resolveFactoring(input, { ...options, factoringMode: 'aula' });
+    return { factoringMode: 'aula', bancada: aula.result, notes: [NO_COMPLETE_FACTORING] };
+  }
+  return { factoringMode: mode, bancada: r.result, notes: [] };
 }
 
 export function checkAnswer(kind: TransformKind, original: Cfg, answerText: string, opts: PracticeOptions = {}): PracticeReport {
   const n = opts.n ?? DEFAULT_MAX_LEN;
   const parsed = parseCfg(answerText);
   const base: PracticeReport = {
-    parseProblems: parsed.problems, notes: parsed.notes, issues: [], formOk: false,
+    parseProblems: parsed.problems, notes: [...(opts.notes ?? []), ...parsed.notes], issues: [], formOk: false,
     language: null, comparison: null, verdict: 'pendente',
   };
   const answer = parsed.grammar;

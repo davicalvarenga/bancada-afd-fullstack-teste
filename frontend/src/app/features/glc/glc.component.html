@@ -150,6 +150,7 @@
             <div class="ph"><span class="k mono">3</span><h2>Passo a passo</h2><span class="count mono">{{ steps().length }} passo(s)</span></div>
             <ol class="steps">
               @for (s of steps(); track $index; let i = $index) {
+                @if (s.stage && (i === 0 || steps()[i - 1].stage !== s.stage)) { <li class="stage"><h3>{{ s.stage }}</h3></li> }
                 <li class="step" [class.hl]="s.highlight">
                   <details open>
                     <summary><span class="num mono">{{ i + 1 }}</span>{{ s.title }}</summary>

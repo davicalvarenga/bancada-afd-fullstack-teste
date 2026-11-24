@@ -196,6 +196,8 @@ export interface Step {
   warnings: string[];
   /** Destaque do passo (ex.: coincide com o resultado visto em aula). */
   highlight?: string;
+  /** Etapa a que o passo pertence, quando a resolução tem mais de uma (ex.: recursão + fatoração). */
+  stage?: string;
 }
 
 export function diffCfg(before: Cfg, after: Cfg): CfgDiff {

@@ -111,7 +111,7 @@ export const GLC_EXAMPLES: GlcExample[] = [
     id: 'fat-rec', topico: 'Fatoração', rotulo: 'F5 · Lista Fatorar, ex. 5', origem: 'Lista Fatorar',
     transformacao: 'factoring',
     gramatica: 'S -> A | B | AB\nA -> aB | bS | b\nB -> bB | Ba | C\nC -> AS | AB | b',
-    observacao: "B -> Ba tem recursão à esquerda: a fatoração é recusada até a recursão sair; retire-a antes (use 'Usar como entrada').",
+    observacao: "A professora passou só o enunciado. A resolução abaixo é da bancada: primeiro retira a recursão (B -> Ba), depois fatora.",
   },
 
   // ─── CNF ───

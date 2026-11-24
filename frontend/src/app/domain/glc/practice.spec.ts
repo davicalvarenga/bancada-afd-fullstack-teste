@@ -4,9 +4,9 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { Cfg, parseCfg, showCfg } from './cfg';
-import { runTransform } from './transforms';
+import { NO_COMPLETE_FACTORING, resolveFactoring, runTransform } from './transforms';
 import { GLC_EXAMPLES } from './examples';
-import { EMPTY_LANGUAGE_PRACTICE, GNF_EPS_NOTE, PracticeReport, checkAnswer } from './practice';
+import { EMPTY_LANGUAGE_PRACTICE, GNF_EPS_NOTE, PracticeReport, checkAnswer, factoringBasis } from './practice';
 
 function g(text: string): Cfg {
   const r = parseCfg(text);
@@ -215,4 +215,33 @@ test('treino: F0 continua passando nas duas opções', () => {
     const r = checkAnswer('factoring', g(e.gramatica), RESPOSTAS_AULA.fat1, { factoringMode });
     assert.equal(r.verdict, 'pleno', factoringMode);
   }
+});
+
+// ─────────────────────────── F5: treino com recursão + fatoração ───────────────────────────
+
+test('treino F5: a resolução da bancada (como em aula) passa', () => {
+  const original = g(ex('fat-rec').gramatica);
+  const basis = factoringBasis(original, { factoringMode: 'aula' });
+  const r = checkAnswer('factoring', original, showCfg(basis.bancada), { factoringMode: basis.factoringMode, bancada: basis.bancada });
+  assert.deepEqual(erros(r), []);
+  assert.equal(r.verdict, 'pleno');
+  assert.equal(r.comparison, 'bancada');
+});
+
+test('treino F5: resposta que fatora mas mantém B -> Ba reprova por recursão à esquerda', () => {
+  const original = g(ex('fat-rec').gramatica);
+  const r = checkAnswer('factoring', original, "S -> A | B | AB\nA -> aB | bA'\nA' -> S | ε\nB -> bB | Ba | C\nC -> AS | AB | b", { factoringMode: 'aula' });
+  assert.ok(erros(r).includes('B → Ba: recursão direta'), erros(r).join('\n'));
+  assert.equal(r.verdict, 'pendente');
+});
+
+test('treino: na completa que não termina, compara com "como em aula" e avisa', () => {
+  const original = g(ex('fat-rec').gramatica);
+  const basis = factoringBasis(original, { factoringMode: 'completa' });
+  assert.equal(basis.factoringMode, 'aula');
+  assert.deepEqual(basis.notes, [NO_COMPLETE_FACTORING]);
+  const aula = resolveFactoring(original, { factoringMode: 'aula' }).result;
+  const r = checkAnswer('factoring', original, showCfg(aula), { ...basis });
+  assert.equal(r.verdict, 'pleno'); // prefixo indireto em variável nova não reprova
+  assert.ok(r.notes.includes(NO_COMPLETE_FACTORING));
 });

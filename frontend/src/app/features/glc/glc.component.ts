@@ -5,9 +5,9 @@ import { SymBarComponent } from '../../shared/sym-bar.component';
 import { ThemeService } from '../../core/services/theme.service';
 import { Cfg, Step, altsOf, cfgLines, parseCfg, prodKey, showCfg, showProd, showRhs, terminalsOf } from '../../domain/glc/cfg';
 import { DEFAULT_MAX_LEN, EquivalenceReport, FormCheck, checkForms, compareUpTo } from '../../domain/glc/checks';
-import { TRANSFORMS, TransformKind, TransformResult, runTransform } from '../../domain/glc/transforms';
+import { TRANSFORMS, TransformKind, TransformResult, resolveFactoring, runTransform } from '../../domain/glc/transforms';
 import { GLC_EXAMPLES, GLC_EXAMPLE_GROUPS } from '../../domain/glc/examples';
-import { PracticeIssue, PracticeReport, checkAnswer, formIssues } from '../../domain/glc/practice';
+import { PracticeIssue, PracticeReport, checkAnswer, factoringBasis, formIssues } from '../../domain/glc/practice';
 import { FactoringMode } from '../../domain/glc/factoring';
 
 const STORE_KEY = 'bancada-glc-v1';
@@ -115,6 +115,7 @@ interface StepView {
   newVars: string[];
   warnings: string[];
   highlight: string | null;
+  stage: string | null;
 }
 /** Célula da tabela de verificações: erros reprovam; avisos (ex.: prefixo indireto) não. */
 interface CheckCell { ok: boolean; violations: string[]; warnings: string[] }
@@ -145,6 +146,7 @@ function stepView(s: Step): StepView {
     newVars: s.diff.newVars,
     warnings: s.warnings,
     highlight: s.highlight ?? null,
+    stage: s.stage ?? null,
   };
 }
 
@@ -197,7 +199,9 @@ export class GlcComponent {
     const ex = this.example();
     const classResult = ex?.gabaritoAula ? parseCfg(ex.gabaritoAula).grammar : null;
     try {
-      return { r: runTransform(this.kind(), g, { epsFreeRecursion: this.epsFree(), removeUseless: this.useless(), factoringMode: this.factoringMode(), classResult }), error: null };
+      const opts = { epsFreeRecursion: this.epsFree(), removeUseless: this.useless(), factoringMode: this.factoringMode(), classResult };
+      // fatoração com recursão à esquerda: resolução em duas etapas (recursão, depois fatoração)
+      return { r: this.kind() === 'factoring' ? resolveFactoring(g, opts) : runTransform(this.kind(), g, opts), error: null };
     } catch (e) {
       return { r: null, error: e instanceof Error ? e.message : String(e) };
     }
@@ -308,7 +312,11 @@ export class GlcComponent {
     const ex = this.example();
     const r = this.run().r;
     const gabarito = ex?.gabaritoAula && ex.transformacao === this.kind() ? parseCfg(ex.gabaritoAula).grammar : null;
-    const rep = checkAnswer(this.kind(), g, this.answer(), { n: this.n(), bancada: r && !r.refused ? r.result : null, gabarito, factoringMode: this.factoringMode() });
+    // na fatoração, a base é a resolução da opção escolhida (ou "como em aula", se a completa não termina)
+    const basis = this.kind() === 'factoring'
+      ? factoringBasis(g, { epsFreeRecursion: this.epsFree(), factoringMode: this.factoringMode() })
+      : { factoringMode: this.factoringMode(), bancada: r && !r.refused ? r.result : null, notes: [] };
+    const rep = checkAnswer(this.kind(), g, this.answer(), { n: this.n(), gabarito, ...basis });
     this.report.set(rep);
     if (ex) this.saveAnswer(ex.id, { resposta: this.answer(), ok: rep.verdict === 'pleno' });
   }
