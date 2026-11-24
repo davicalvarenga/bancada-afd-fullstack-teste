@@ -38,18 +38,21 @@ export const GLC_EXAMPLES: GlcExample[] = [
     transformacao: 'useless',
     gramatica: 'S -> aA\nA -> a | bB\nB -> b | dD\nC -> cC | c\nD -> dD',
     gabaritoAula: 'S -> aA\nA -> a | bB\nB -> b',
+    observacao: "D é estéril; C é inalcançável. Resultado: S → aA, A → a | bB, B → b.",
   },
   {
     id: 'eps', topico: 'Simplificação', rotulo: 'S2 · ε-livre', origem: 'Quadro, Anotações 10/11',
     transformacao: 'epsilon',
     gramatica: 'S -> bCDe | DC\nD -> dD | ε\nC -> cD | ε',
     gabaritoAula: "S' -> S | ε\nS -> bCDe | DC | bDe | be | bCe | C | D\nD -> dD | d\nC -> cD | c",
+    observacao: "Anuláveis {D, C, S}: como S é anulável, nasce S' → S | ε.",
   },
   {
     id: 'simples', topico: 'Simplificação', rotulo: 'S3 · Produção simples', origem: 'Quadro',
     transformacao: 'unit',
     gramatica: 'S -> aSb | B | b\nB -> ab | ba',
     gabaritoAula: 'S -> aSb | ab | ba | b',
+    observacao: "fecho(S) = {B}: S → B vira S → ab | ba.",
   },
 
   // ─── Recursão à esquerda (Lista "Retirar a recursão") ───
@@ -57,18 +60,20 @@ export const GLC_EXAMPLES: GlcExample[] = [
     id: 'rec-vazia', topico: 'Recursão à esquerda', rotulo: 'R1 · S → D | B, D → dB | Sb, B → bB | Bd',
     origem: 'Lista Retirar a recursão', transformacao: 'left-recursion',
     gramatica: 'S -> D | B\nD -> dB | Sb\nB -> bB | Bd',
-    observacao: `B nunca termina (estéril): a linguagem é vazia. O exercício cobra a transformação mecânica.`,
+    observacao: "Recursão indireta (S ⇒ D ⇒ Sb) e direta (B → Bd). B nunca termina (estéril): a linguagem é vazia, mas o exercício cobra a transformação mecânica.",
   },
   {
     id: 'etf', topico: 'Recursão à esquerda', rotulo: 'R2 · E → E+T | T, T → T*F | F, F → (E) | a',
     origem: 'Lista Retirar a recursão', transformacao: 'left-recursion',
     gramatica: ETF,
     gabaritoAula: "E -> TE'\nE' -> +TE' | ε\nT -> FT'\nT' -> *FT' | ε\nF -> (E) | a",
+    observacao: "Recursão direta em E e T: E → TE', E' → +TE' | ε, …",
   },
   {
     id: 'lista', topico: 'Recursão à esquerda', rotulo: 'R3 · S → [L] | a, L → LS | S',
     origem: 'Lista Retirar a recursão', transformacao: 'left-recursion',
     gramatica: 'S -> [L] | a\nL -> LS | S',
+    observacao: "L → LS | S vira L → SL', L' → SL' | ε.",
   },
 
   // ─── Fatoração ───
@@ -77,14 +82,14 @@ export const GLC_EXAMPLES: GlcExample[] = [
     transformacao: 'factoring',
     gramatica: 'S -> Ab | abaA\nA -> aab | aa',
     gabaritoAula: "A -> aaA'\nA' -> b | ε",
-    observacao: "No quadro aparece A -> aaA' | b e S -> aS' | bb; a gramática original não tem a alternativa b, "
-      + "então o correto é S' -> aA'b | baA.",
+    observacao: "Direta: A → aaA', A' → b | ε. Indireta: S → aS', S' → aA'b | baA. No quadro aparece A -> aaA' | b e S -> aS' | bb, mas a gramática original não tem a alternativa b.",
   },
   {
     id: 'fat2', topico: 'Fatoração', rotulo: 'F1 · Lista Fatorar, ex. 1 e 6', origem: 'Lista Fatorar',
     transformacao: 'factoring',
     gramatica: 'S -> aA | aB | C\nA -> CA | a\nB -> bB | bC\nC -> aC | c',
     gabaritoAula: "S -> aS' | c\nS' -> A | B | C",
+    observacao: "C começa com a: S → aS' | c, S' → A | B | C, e as novas continuam sendo fatoradas.",
   },
   {
     id: 'fat-f2', topico: 'Fatoração', rotulo: 'F2 · Lista Fatorar, ex. 2', origem: 'Lista Fatorar',
@@ -95,6 +100,7 @@ export const GLC_EXAMPLES: GlcExample[] = [
     id: 'fat3', topico: 'Fatoração', rotulo: 'F3 · Lista Fatorar, ex. 3', origem: 'Lista Fatorar',
     transformacao: 'factoring',
     gramatica: 'S -> bAS | a\nA -> SaA | SS | ab',
+    observacao: "Exige fatorar as variáveis novas várias vezes.",
   },
   {
     id: 'fat-f4', topico: 'Fatoração', rotulo: 'F4 · Lista Fatorar, ex. 4', origem: 'Lista Fatorar',
@@ -105,7 +111,7 @@ export const GLC_EXAMPLES: GlcExample[] = [
     id: 'fat-rec', topico: 'Fatoração', rotulo: 'F5 · Lista Fatorar, ex. 5', origem: 'Lista Fatorar',
     transformacao: 'factoring',
     gramatica: 'S -> A | B | AB\nA -> aB | bS | b\nB -> bB | Ba | C\nC -> AS | AB | b',
-    observacao: "B -> Ba tem recursão à esquerda: retire a recursão antes de fatorar (use 'Usar como entrada').",
+    observacao: "B -> Ba tem recursão à esquerda: a fatoração é recusada até a recursão sair; retire-a antes (use 'Usar como entrada').",
   },
 
   // ─── CNF ───
@@ -114,6 +120,7 @@ export const GLC_EXAMPLES: GlcExample[] = [
     transformacao: 'cnf',
     gramatica: 'S -> ASA | aB\nA -> B | S\nB -> b | ε',
     gabaritoAula: "S' -> AY' | XB | a | SA | AS\nS -> AY' | XB | a | SA | AS\nA -> b | AY' | XB | a | SA | AS\nB -> b\nX -> a\nY' -> SA",
+    observacao: "Resultado esperado: S' → AY | XB | a | SA | AS, …, X → a, Y → SA.",
   },
   {
     id: 'cnf-c1', topico: 'CNF', rotulo: 'C1 · Lista CNF, ex. 1 e 3', origem: 'Lista CNF',
@@ -124,6 +131,7 @@ export const GLC_EXAMPLES: GlcExample[] = [
     id: 'cnf2', topico: 'CNF', rotulo: 'C2 · Lista CNF, ex. 2 (Menezes 6.13)', origem: 'Lista CNF',
     transformacao: 'cnf',
     gramatica: 'E -> E+E | E*E | [E] | x',
+    observacao: "Terminais acompanhados (+, *, [, ]) viram variáveis.",
   },
   {
     id: 'cnf-c4', topico: 'CNF', rotulo: 'C4 · Lista CNF, ex. 4', origem: 'Lista CNF',
@@ -138,11 +146,13 @@ export const GLC_EXAMPLES: GlcExample[] = [
     gramatica: ETF,
     gabaritoAula: "E -> (EXT'E' | aT'E' | (EXE' | aE' | (EXT' | aT' | (EX | a\nE' -> +TE' | +T\n"
       + "T -> (EXT' | aT' | (EX | a\nT' -> *FT' | *F\nF -> (EX | a\nX -> )",
+    observacao: "Recursão → ε-livre → simples → substituição de baixo para cima → X → ).",
   },
   {
     id: 'gnf-menezes', topico: 'GNF', rotulo: 'G1 · Lista GNF, ex. 1 (Menezes 6.14)', origem: 'Lista GNF',
     transformacao: 'gnf',
     gramatica: 'S -> AA | a\nA -> SS | b',
+    observacao: "Recursão indireta: A → SS → AAS.",
   },
   {
     id: 'gnf-sabc', topico: 'GNF', rotulo: 'G2 · Lista GNF, ex. 2', origem: 'Lista GNF',
@@ -165,7 +175,7 @@ export const GLC_EXAMPLES: GlcExample[] = [
     id: 'vazia', topico: 'GNF', rotulo: 'G6 · Lista GNF, ex. 6', origem: 'Lista GNF (o ex. 5 não foi copiado em aula)',
     transformacao: 'gnf',
     gramatica: 'S -> LS | SL\nL -> aC | CL\nC -> La | a | b',
-    observacao: `S -> LS | SL sempre contém S: linguagem vazia; ${LINGUAGEM_VAZIA}`,
+    observacao: "S -> LS | SL sempre contém S: S é estéril e L(G) = ∅; o exercício cobra a transformação mecânica.",
   },
 ];
 
