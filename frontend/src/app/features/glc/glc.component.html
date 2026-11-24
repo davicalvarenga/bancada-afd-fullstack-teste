@@ -70,6 +70,14 @@
           @if (kind() === 'left-recursion') {
             <label class="chk"><input type="checkbox" [checked]="epsFree()" (change)="epsFree.set($any($event.target).checked)" /> Versão sem ε (A → βA' | β, A' → αA' | α)</label>
           }
+          @if (kind() === 'factoring') {
+            <label class="chk">Fatoração:
+              <select class="inp sel" [value]="factoringMode()" (change)="factoringMode.set($any($event.target).value); report.set(null)" aria-label="Modo da fatoração">
+                <option value="aula" [selected]="factoringMode() === 'aula'">como em aula</option>
+                <option value="completa" [selected]="factoringMode() === 'completa'">completa</option>
+              </select>
+            </label>
+          }
           @if (kind() === 'cnf' || kind() === 'gnf') {
             <label class="chk"><input type="checkbox" [checked]="useless()" (change)="useless.set($any($event.target).checked)" /> Remover símbolos inúteis (etapa opcional)</label>
           }
@@ -205,11 +213,16 @@
             <thead><tr><th scope="col">Verificação</th><th scope="col">Entrada</th><th scope="col">Resultado</th></tr></thead>
             <tbody>
               @for (c of checks(); track c.label) {
-                <tr>
-                  <th scope="row">{{ c.label }}</th>
+                <tr [class.cur]="c.current">
+                  <th scope="row">{{ c.label }}@if (c.current) { <span class="here">transformação atual</span> }</th>
                   @for (f of [c.input, c.output]; track $index) {
                     <td>
-                      @if (f.ok) { <span class="chip ok">sim</span> } @else {
+                      @if (f.ok && !f.warnings.length) { <span class="chip ok">sim</span> } @else if (f.ok) {
+                        <details class="viol">
+                          <summary><span class="chip warn">sim, com aviso</span> {{ f.warnings.length }}</summary>
+                          <ul class="mono">@for (v of f.warnings; track $index) { <li>{{ v }}</li> }</ul>
+                        </details>
+                      } @else {
                         <details class="viol">
                           <summary><span class="chip bad">não</span> {{ f.violations.length }}</summary>
                           <ul class="mono">@for (v of f.violations; track $index) { <li>{{ v }}</li> }</ul>

@@ -114,7 +114,7 @@ export function addVar(g: Cfg, name: string, alts: readonly string[][], after?: 
  * Raiz da "família" de um nome: A'' → A; A3 → A quando A existe (A3 foi criada a partir de A).
  * Nomes do usuário como A1 e A2 continuam sendo raiz de si mesmos.
  */
-function familyRoot(name: string, used: ReadonlySet<string>): string {
+export function familyRoot(name: string, used: ReadonlySet<string>): string {
   const noPrimes = name.replace(/'+$/, '');
   const m = /^([A-Z][a-z]*)(\d+)$/.exec(noPrimes);
   return m && Number(m[2]) >= 3 && used.has(m[1]) ? m[1] : noPrimes;

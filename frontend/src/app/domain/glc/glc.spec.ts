@@ -405,3 +405,60 @@ for (const ex of GLC_EXAMPLES) {
     if (classResult) assert.ok(r.steps.some((s) => s.highlight), 'o selo "em aula" deveria aparecer em algum passo');
   });
 }
+
+// ─────────────────────────── fatoração: como em aula × completa ───────────────────────────
+
+const F1 = 'S -> aA | aB | C\nA -> CA | a\nB -> bB | bC\nC -> aC | c';
+
+test('fatoração como em aula: F1 para em S\' -> A | B | C, com aviso', () => {
+  const r = run('factoring', F1, { factoringMode: 'aula' });
+  assertShape(r.result, "S -> aS' | c\nS' -> A | B | C\nA -> aA' | cA\nA' -> CA | ε\nB -> bB'\nB' -> B | C\nC -> aC | c");
+  assert.deepEqual(r.result.vars, ['S', "S'", 'A', "A'", 'B', "B'", 'C']); // nomes e ordem de exibição
+  assert.ok(r.warnings.includes("Ainda há prefixo indireto em S' (A e C podem começar com a ou c). A fatoração completa continua a partir daqui."),
+    r.warnings.join('\n'));
+  assertEquivalent(r.input, r.result);
+});
+
+test('fatoração completa: F1 unifica variáveis idênticas e exibe em ordem de criação', () => {
+  const r = run('factoring', F1, { factoringMode: 'completa' });
+  const uni = r.steps.find((s) => s.title === 'Unificar variáveis novas idênticas')!;
+  assert.ok(uni, 'deveria haver o passo de unificação');
+  assert.equal(uni, r.steps[r.steps.length - 1]);
+  assert.deepEqual(uni.diff.removedVars, ['S4']);
+  assert.deepEqual(r.result.vars, ['S', "S'", "S''", 'S3', 'A', "A'", 'B', "B'", 'C']);
+  assert.equal(prefixConflicts(r.result).length, 0);
+  assertEquivalent(r.input, r.result);
+});
+
+test('fatoração: F0 tem o selo "em aula" nas duas opções', () => {
+  const ex = GLC_EXAMPLES.find((e) => e.id === 'fat1')!;
+  for (const factoringMode of ['aula', 'completa'] as const) {
+    const r = runTransform('factoring', g(ex.gramatica), { factoringMode, classResult: g(ex.gabaritoAula!) });
+    assert.equal(r.steps.find((s) => s.highlight)?.title, 'Fatoração direta em A', factoringMode);
+  }
+});
+
+test('fatoração: F3 equivalente até n = 9 nas duas opções', () => {
+  for (const factoringMode of ['aula', 'completa'] as const) {
+    const r = run('factoring', 'S -> bAS | a\nA -> SaA | SS | ab', { factoringMode });
+    assertEquivalent(r.input, r.result, 9);
+  }
+});
+
+test('nenhum resultado com variáveis novas idênticas (todos os exercícios, as duas opções)', () => {
+  for (const ex of GLC_EXAMPLES) {
+    for (const factoringMode of ['aula', 'completa'] as const) {
+      for (const removeUseless of [false, true]) {
+        const r = runTransform(ex.transformacao, g(ex.gramatica), { factoringMode, removeUseless });
+        const fresh = r.result.vars.filter((v) => !r.input.vars.includes(v) && altsOf(r.result, v).length);
+        const keys = fresh.map((v) => altsOf(r.result, v).map(showRhs).sort().join(' | '));
+        assert.equal(new Set(keys).size, keys.length, `${ex.rotulo} (${factoringMode}): ${fresh.map((v, i) => `${v} → ${keys[i]}`).join('; ')}`);
+      }
+    }
+  }
+});
+
+test('ordem de exibição: partida, originais na ordem da entrada, novas após a origem', () => {
+  assert.deepEqual(run('epsilon', 'S -> bCDe | DC\nD -> dD | ε\nC -> cD | ε').result.vars, ["S'", 'S', 'D', 'C']);
+  assert.deepEqual(run('left-recursion', ETF).result.vars, ['E', "E'", 'T', "T'", 'F']);
+});

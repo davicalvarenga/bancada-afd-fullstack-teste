@@ -7,13 +7,14 @@ import { Cfg, Step, cfgLines, parseCfg, prodKey, showCfg, showProd, showRhs, ter
 import { DEFAULT_MAX_LEN, EquivalenceReport, FormCheck, checkForms, compareUpTo } from '../../domain/glc/checks';
 import { TRANSFORMS, TransformKind, TransformResult, runTransform } from '../../domain/glc/transforms';
 import { GLC_EXAMPLES, GLC_EXAMPLE_GROUPS } from '../../domain/glc/examples';
-import { PracticeReport, checkAnswer } from '../../domain/glc/practice';
+import { PracticeIssue, PracticeReport, checkAnswer, formIssues } from '../../domain/glc/practice';
+import { FactoringMode } from '../../domain/glc/factoring';
 
 const STORE_KEY = 'bancada-glc-v1';
 const MAX_N = 10;
 const KINDS = new Set<string>(TRANSFORMS.map((t) => t.id));
 
-interface Saved { example: string; grammar: string; kind: TransformKind; epsFree: boolean; useless: boolean; n: number }
+interface Saved { example: string; grammar: string; kind: TransformKind; epsFree: boolean; useless: boolean; n: number; factoringMode: FactoringMode }
 
 /** Estado salvo no navegador: entrada não confiável, então só tipos esperados e com teto. */
 function load(): Saved | null {
@@ -29,6 +30,7 @@ function load(): Saved | null {
       kind: (typeof v.kind === 'string' && KINDS.has(v.kind) ? v.kind : 'simplify') as TransformKind,
       epsFree: v.epsFree === true,
       useless: v.useless === true,
+      factoringMode: v.factoringMode === 'completa' ? 'completa' : 'aula', // padrão da tela: como em aula
       n,
     };
   } catch { return null; }
@@ -93,7 +95,15 @@ interface StepView {
   warnings: string[];
   highlight: string | null;
 }
-interface CheckRow { label: string; input: FormCheck; output: FormCheck }
+/** Célula da tabela de verificações: erros reprovam; avisos (ex.: prefixo indireto) não. */
+interface CheckCell { ok: boolean; violations: string[]; warnings: string[] }
+interface CheckRow { label: string; current: boolean; input: CheckCell; output: CheckCell }
+const fromCheck = (f: FormCheck): CheckCell => ({ ok: f.ok, violations: f.violations, warnings: [] });
+const fromIssues = (xs: PracticeIssue[]): CheckCell => ({
+  ok: !xs.some((i) => i.severity === 'erro'),
+  violations: xs.filter((i) => i.severity === 'erro').map((i) => i.message),
+  warnings: xs.filter((i) => i.severity === 'aviso').map((i) => i.message),
+});
 
 function linesOf(g: Cfg, added: Set<string>, newVars: Set<string>): LineView[] {
   return cfgLines(g).map((l) => ({
@@ -142,6 +152,7 @@ export class GlcComponent {
   readonly kind = signal<TransformKind>(this.saved?.kind ?? GLC_EXAMPLES[0].transformacao);
   readonly epsFree = signal(this.saved?.epsFree ?? false);
   readonly useless = signal(this.saved?.useless ?? false);
+  readonly factoringMode = signal<FactoringMode>(this.saved?.factoringMode ?? 'aula');
   readonly n = signal(this.saved?.n ?? DEFAULT_MAX_LEN);
 
   /** O exemplo só vale enquanto o texto não for editado ("personalizada" depois). */
@@ -165,7 +176,7 @@ export class GlcComponent {
     const ex = this.example();
     const classResult = ex?.gabaritoAula ? parseCfg(ex.gabaritoAula).grammar : null;
     try {
-      return { r: runTransform(this.kind(), g, { epsFreeRecursion: this.epsFree(), removeUseless: this.useless(), classResult }), error: null };
+      return { r: runTransform(this.kind(), g, { epsFreeRecursion: this.epsFree(), removeUseless: this.useless(), factoringMode: this.factoringMode(), classResult }), error: null };
     } catch (e) {
       return { r: null, error: e instanceof Error ? e.message : String(e) };
     }
@@ -182,13 +193,19 @@ export class GlcComponent {
     if (!r) return [];
     const a = checkForms(r.input);
     const b = checkForms(r.result);
-    return [
-      { label: 'Forma Normal de Chomsky', input: a.cnf, output: b.cnf },
-      { label: 'Forma Normal de Greibach', input: a.gnf, output: b.gnf },
-      { label: 'ε-livre', input: a.epsFree, output: b.epsFree },
-      { label: 'Sem recursão à esquerda', input: a.leftRecursion, output: b.leftRecursion },
-      { label: 'Sem prefixo comum', input: a.commonPrefix, output: b.commonPrefix },
+    const k = this.kind();
+    // todas as verificações; a(s) da transformação atual sobem para o topo, destacadas
+    const rows: (Omit<CheckRow, 'current'> & { kinds: TransformKind[] })[] = [
+      { label: 'Sem símbolos inúteis', kinds: ['useless', 'simplify'], input: fromIssues(formIssues('useless', r.input)), output: fromIssues(formIssues('useless', r.result)) },
+      { label: 'ε-livre', kinds: ['epsilon', 'simplify'], input: fromCheck(a.epsFree), output: fromCheck(b.epsFree) },
+      { label: 'Sem produções simples', kinds: ['unit', 'simplify'], input: fromIssues(formIssues('unit', r.input)), output: fromIssues(formIssues('unit', r.result)) },
+      { label: 'Sem recursão à esquerda', kinds: ['left-recursion'], input: fromCheck(a.leftRecursion), output: fromCheck(b.leftRecursion) },
+      { label: 'Sem prefixo comum (indireto = aviso)', kinds: ['factoring'], input: fromIssues(formIssues('factoring', r.input)), output: fromIssues(formIssues('factoring', r.result)) },
+      { label: 'Forma Normal de Chomsky', kinds: ['cnf'], input: fromCheck(a.cnf), output: fromCheck(b.cnf) },
+      { label: 'Forma Normal de Greibach', kinds: ['gnf'], input: fromCheck(a.gnf), output: fromCheck(b.gnf) },
     ];
+    const out = rows.map(({ kinds, ...row }) => ({ ...row, current: kinds.includes(k) }));
+    return [...out.filter((x) => x.current), ...out.filter((x) => !x.current)];
   });
   readonly equivalence = computed<EquivalenceReport | null>(() => {
     const r = this.run().r;
@@ -223,7 +240,7 @@ export class GlcComponent {
     effect(() => {
       const data: Saved = {
         example: this.exampleId(), grammar: this.grammarText(), kind: this.kind(),
-        epsFree: this.epsFree(), useless: this.useless(), n: this.n(),
+        epsFree: this.epsFree(), useless: this.useless(), n: this.n(), factoringMode: this.factoringMode(),
       };
       try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); } catch { /* modo privado */ }
     });

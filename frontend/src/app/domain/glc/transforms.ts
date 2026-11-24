@@ -3,11 +3,11 @@
  * transforma estouro de limite em aviso (resultado parcial) e avisa quando a
  * linguagem é vazia. É o único arquivo que a tela precisa chamar.
  */
-import { Cfg, GlcLimitError, Step, StepLog, altsOf, rhsKey } from './cfg';
+import { Cfg, GlcLimitError, Step, StepLog, altsOf, familyRoot, rhsKey } from './cfg';
 import { hasLeftRecursion, isLanguageEmpty, leftRecursion } from './analysis';
 import { EMPTY_LANGUAGE_WARNING, removeEpsilon, removeUnits, removeUseless, simplify } from './simplify';
 import { removeLeftRecursion } from './left-recursion';
-import { DEFAULT_MAX_ITERATIONS, factor } from './factoring';
+import { DEFAULT_MAX_ITERATIONS, FactoringMode, factor } from './factoring';
 import { toCnf, toGnf } from './normal-forms';
 
 export type TransformKind = 'simplify' | 'useless' | 'epsilon' | 'unit' | 'left-recursion' | 'factoring' | 'cnf' | 'gnf';
@@ -33,6 +33,11 @@ export interface TransformOptions {
   /** Fatoração: teto de iterações (substituições + fatorações). */
   maxIterations: number;
   /**
+   * Fatoração: 'aula' (indireta só nas variáveis originais) ou 'completa'. O padrão do
+   * motor é 'completa' (comportamento anterior); a tela começa em 'aula'.
+   */
+  factoringMode: FactoringMode;
+  /**
    * Fatoração: gramática (possivelmente parcial) obtida em aula. O primeiro passo em
    * que cada variável dela tem exatamente as mesmas alternativas recebe um destaque.
    */
@@ -43,8 +48,40 @@ export const DEFAULT_OPTIONS: TransformOptions = {
   epsFreeRecursion: false,
   removeUseless: false,
   maxIterations: DEFAULT_MAX_ITERATIONS,
+  factoringMode: 'completa',
   classResult: null,
 };
+
+/** Posição de uma variável nova dentro da família: A' = 1, A'' = 2, A3 = 3… (= ordem de criação). */
+function familyRank(v: string, root: string): number {
+  const suffix = v.slice(root.length);
+  if (/^'+$/.test(suffix)) return suffix.length;
+  if (/^\d+$/.test(suffix)) return Number(suffix);
+  return 1000;
+}
+
+/**
+ * Ordem de exibição: símbolo de partida, depois as variáveis originais na ordem da
+ * entrada, cada uma seguida das variáveis novas que derivaram dela (A', A'', A3…, em
+ * ordem de criação); as novas sem origem (Xa, Y1…) vão no fim, na ordem em que surgiram.
+ */
+export function displayOrder(g: Cfg, originals: readonly string[]): Cfg {
+  const present = new Set(g.vars);
+  const orig = new Set(originals);
+  const family = new Map<string, string[]>();
+  const tail: string[] = [];
+  for (const v of g.vars) {
+    if (orig.has(v) || v === g.start) continue;
+    const root = familyRoot(v, present);
+    if (orig.has(root) && present.has(root)) family.set(root, [...(family.get(root) ?? []), v]);
+    else tail.push(v);
+  }
+  for (const [root, members] of family) members.sort((a, b) => familyRank(a, root) - familyRank(b, root));
+  const out = [g.start, ...(family.get(g.start) ?? [])];
+  for (const o of originals) if (present.has(o) && o !== g.start) out.push(o, ...(family.get(o) ?? []));
+  for (const v of [...tail, ...g.vars]) if (!out.includes(v)) out.push(v);
+  return { start: g.start, vars: out, prods: g.prods };
+}
 
 export const CLASS_MATCH_INTERMEDIATE =
   'Resultado da fatoração em aula; os passos seguintes continuam fatorando as variáveis novas.';
@@ -153,7 +190,7 @@ export function runTransform(kind: TransformKind, input: Cfg, options: Partial<T
         }
         break;
       }
-      case 'factoring': factor(input, log, opts.maxIterations); break;
+      case 'factoring': factor(input, log, opts.maxIterations, opts.factoringMode, warn); break;
       case 'cnf': toCnf(input, log, opts); break;
       case 'gnf': toGnf(input, log, opts, warn); break;
     }
@@ -163,5 +200,6 @@ export function runTransform(kind: TransformKind, input: Cfg, options: Partial<T
     aborted = true;
   }
   if (opts.classResult) markClassResult(kind, log.steps, opts.classResult, input);
-  return done(null, aborted);
+  for (let i = 0; i < log.steps.length; i++) log.steps[i] = { ...log.steps[i], grammar: displayOrder(log.steps[i].grammar, input.vars) };
+  return { ...done(null, aborted), result: displayOrder(log.current, input.vars) };
 }

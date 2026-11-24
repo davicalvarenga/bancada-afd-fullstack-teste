@@ -168,3 +168,14 @@ test('treino: GNF ignora ε quando a original gera ε', () => {
   assert.equal(r.verdict, 'pleno');
 });
 
+
+test('treino: comparação usa a opção de fatoração selecionada', () => {
+  const e = ex('fat2');
+  const original = g(e.gramatica);
+  const completa = runTransform('factoring', original, { factoringMode: 'completa' }).result;
+  const aula = runTransform('factoring', original, { factoringMode: 'aula' }).result;
+  const resposta = showCfg(completa);
+  // mesma resposta: igual à resolução "completa", diferente da "como em aula"
+  assert.equal(checkAnswer('factoring', original, resposta, { bancada: completa }).comparison, 'bancada');
+  assert.equal(checkAnswer('factoring', original, resposta, { bancada: aula }).comparison, 'diferente');
+});

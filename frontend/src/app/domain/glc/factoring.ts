@@ -25,7 +25,7 @@
  * Pré-condição: sem recursão à esquerda (senão a substituição não termina). O
  * chamador recusa a transformação e avisa.
  */
-import { Cfg, GlcLimitError, StepLog, addVar, altsOf, freshPrime, rhsKey, setAlts, showRhs, varSet } from './cfg';
+import { Cfg, GlcLimitError, Prod, StepLog, addVar, altsOf, freshPrime, makeCfg, rhsKey, setAlts, showRhs, varSet } from './cfg';
 import { bottomUpOrder, firstOfSeq, firstSets, nullableInfo, prefixConflicts } from './analysis';
 
 export const FACTORING_CRITERION =
@@ -34,6 +34,46 @@ export const FACTORING_CRITERION =
   + 'com terminal, e as que começam com variável sem cruzamento, ficam como estão; a alternativa ε não entra na comparação.';
 
 export const DEFAULT_MAX_ITERATIONS = 60;
+
+/**
+ * como-em-aula: a substituição da variável inicial (fatoração indireta) só é feita nas
+ * variáveis ORIGINAIS; nas criadas (A', S'…) só a fatoração direta (prefixo visível).
+ * Prefixo indireto que sobrar vira aviso. completa: segue até não haver prefixo nenhum.
+ */
+export type FactoringMode = 'aula' | 'completa';
+
+const joinList = (xs: readonly string[], last: string) =>
+  (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} ${last} ${xs[xs.length - 1]}`);
+
+/** Variáveis criadas com exatamente as mesmas alternativas viram uma só (a mais antiga fica). */
+function unifyIdentical(g: Cfg, createdOrder: readonly string[], log: StepLog): Cfg {
+  let cur = g;
+  const merged: string[] = [];
+  for (;;) {
+    const alive = createdOrder.filter((v) => cur.vars.includes(v) && altsOf(cur, v).length);
+    const seen = new Map<string, string>();
+    let pair: [string, string] | null = null;
+    for (const v of alive) {
+      const key = altsOf(cur, v).map(rhsKey).sort().join('\u0002');
+      const keep = seen.get(key);
+      if (keep) { pair = [v, keep]; break; }
+      seen.set(key, v);
+    }
+    if (!pair) break;
+    const [drop, keep] = pair;
+    const prods: Prod[] = cur.prods.filter((p) => p.lhs !== drop).map((p) => ({ lhs: p.lhs, rhs: p.rhs.map((s) => (s === drop ? keep : s)) }));
+    cur = makeCfg(cur.start, cur.vars.filter((v) => v !== drop), prods);
+    merged.push(`${drop} → ${keep}`);
+  }
+  if (!merged.length) return g;
+  return log.push(
+    'Unificar variáveis novas idênticas',
+    'Variáveis criadas pela fatoração com o mesmo conjunto de alternativas geram a mesma coisa: fica só a mais antiga, '
+      + 'e as referências às outras passam a apontar para ela.',
+    cur,
+    [{ label: 'Removida → mantida', items: merged }],
+  );
+}
 
 function longestCommonPrefix(rhss: readonly string[][]): string[] {
   const out: string[] = [];
@@ -46,7 +86,15 @@ function longestCommonPrefix(rhss: readonly string[][]): string[] {
 
 const setText = (xs: Iterable<string>) => `{${[...xs].join(', ')}}`;
 
-export function factor(g: Cfg, log: StepLog, maxIterations = DEFAULT_MAX_ITERATIONS): Cfg {
+export function factor(
+  g: Cfg, log: StepLog, maxIterations = DEFAULT_MAX_ITERATIONS, mode: FactoringMode = 'completa',
+  warn: (msg: string) => void = () => undefined,
+): Cfg {
+  const originals = new Set(g.vars);
+  const createdOrder: string[] = [];
+  /** No modo de aula, variável criada só recebe fatoração direta. */
+  const directOnly = (v: string) => mode === 'aula' && !originals.has(v);
+  const conflictsFor = (v: string) => prefixConflicts(cur, v).filter((c) => !directOnly(v) || c.kind === 'direta');
   const order = bottomUpOrder(g, true).filter((v) => g.prods.some((p) => p.lhs === v));
   let cur = log.push(
     'Ordem de processamento',
@@ -69,7 +117,7 @@ export function factor(g: Cfg, log: StepLog, maxIterations = DEFAULT_MAX_ITERATI
   const queue = [...order];
   const processVar = (a: string): void => {
     for (;;) {
-      const conflicts = prefixConflicts(cur, a);
+      const conflicts = conflictsFor(a);
       if (!conflicts.length) return;
       spend();
       const vs = varSet(cur);
@@ -123,6 +171,7 @@ export function factor(g: Cfg, log: StepLog, maxIterations = DEFAULT_MAX_ITERATI
         const name = freshPrime(a, used);
         used.add(name);
         created.push({ name, prefix, alts: grp.map((r) => r.slice(prefix.length)) });
+        createdOrder.push(name);
         grp.forEach((r, i) => replacement.set(rhsKey(r), i === 0 ? [...prefix, name] : null));
       }
       const newAlts = altsOf(cur, a).flatMap((r) => {
@@ -145,8 +194,20 @@ export function factor(g: Cfg, log: StepLog, maxIterations = DEFAULT_MAX_ITERATI
   // repete até nenhuma variável ter conflito; o orçamento de iterações garante o fim
   for (;;) {
     while (queue.length) processVar(queue.shift()!);
-    const pending = cur.vars.filter((v) => prefixConflicts(cur, v).length);
-    if (!pending.length) return cur;
+    const pending = cur.vars.filter((v) => conflictsFor(v).length);
+    if (!pending.length) break;
     queue.push(...pending);
   }
+
+  if (mode === 'aula') {
+    for (const v of cur.vars) {
+      const left = prefixConflicts(cur, v).filter((c) => c.kind === 'indireta');
+      if (!left.length) continue;
+      const heads = [...new Set(left.flatMap((c) => [c.a[0], c.b[0]]))];
+      const common = [...new Set(left.flatMap((c) => c.common))];
+      warn(`Ainda há prefixo indireto em ${v} (${joinList(heads, 'e')} podem começar com ${joinList(common, 'ou')}). `
+        + 'A fatoração completa continua a partir daqui.');
+    }
+  }
+  return unifyIdentical(cur, createdOrder, log);
 }
