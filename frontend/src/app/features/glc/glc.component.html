@@ -21,7 +21,7 @@
       <select id="glc-ex" class="inp" (change)="selectExample($any($event.target).value)">
         @for (gr of groups; track gr.label) {
           <optgroup [label]="gr.label">
-            @for (ex of gr.items; track ex.id) { <option [value]="ex.id" [selected]="ex.id === example()?.id">{{ ex.rotulo }}</option> }
+            @for (ex of gr.items; track ex.id) { <option [value]="ex.id" [selected]="ex.id === example()?.id">@if (treino() && doneIds().has(ex.id)) {✓ }{{ ex.rotulo }}</option> }
           </optgroup>
         }
         <option value="" [selected]="!example()">Personalizada (gramática editada)</option>
@@ -32,7 +32,8 @@
       <app-sym-bar [target]="ta" [syms]="[{ s: 'ε', label: 'vazio' }, { s: '→' }]" [typed]="['eps', '&', '->']" />
       <textarea #ta id="glc-g" class="inp code" rows="7" spellcheck="false" maxlength="4000" autocomplete="off"
                 [value]="grammarText()" (input)="editGrammar($any($event.target).value)"></textarea>
-      @if (example()?.observacao; as obs) { <p class="obs" role="note">{{ obs }}</p> }
+      <!-- no modo treino a observação pode conter a resposta: abre junto com a resolução -->
+      @if (example()?.observacao; as obs) { @if (!treino() || showSolution()) { <p class="obs" role="note">{{ obs }}</p> } }
       <p class="hint">
         Neste módulo, <b>variável é letra maiúscula</b> com sufixos opcionais (<code>S'</code>, <code>A1</code>, <code>Xa</code>)
         e <b>qualquer outro caractere é um terminal</b> (<code>a</code>, <code>+</code>, <code>(</code>, <code>¬</code>…).
@@ -60,11 +61,12 @@
         <div class="ph"><span class="k mono">2</span><h2>Transformação</h2></div>
         <div class="kinds" role="group" aria-label="Transformação">
           @for (t of transforms; track t.id) {
-            <button type="button" class="tbtn" [class.active]="t.id === kind()" [attr.aria-pressed]="t.id === kind()" (click)="kind.set(t.id)">{{ t.label }}</button>
+            <button type="button" class="tbtn" [class.active]="t.id === kind()" [attr.aria-pressed]="t.id === kind()" (click)="setKind(t.id)">{{ t.label }}</button>
           }
         </div>
         <p class="hint">{{ info().summary }}</p>
         <div class="opts">
+          <label class="chk treino"><input type="checkbox" [checked]="treino()" (change)="setTreino($any($event.target).checked)" /> <b>Modo treino</b> (resolva antes de ver a resolução)</label>
           @if (kind() === 'left-recursion') {
             <label class="chk"><input type="checkbox" [checked]="epsFree()" (change)="epsFree.set($any($event.target).checked)" /> Versão sem ε (A → βA' | β, A' → αA' | α)</label>
           }
@@ -79,6 +81,56 @@
 
       @if (run().error; as e) { <div class="msg err">Erro inesperado no motor: {{ e }}</div> }
 
+      @if (treino() && parsed().grammar) {
+        <!-- ───────── MODO TREINO ───────── -->
+        <section class="panel">
+          <div class="ph"><span class="k mono">3</span><h2>Sua resposta</h2></div>
+          <p class="hint">Aplique <b>{{ info().label }}</b> à gramática ao lado e escreva a gramática resultante <b>inteira</b>,
+            no mesmo formato da entrada (a 1ª linha é o símbolo de partida).</p>
+          <app-sym-bar [target]="taR" [syms]="[{ s: 'ε', label: 'vazio' }, { s: '→' }]" [typed]="['eps', '&', '->']" />
+          <textarea #taR class="inp code" rows="7" spellcheck="false" maxlength="4000" autocomplete="off" aria-label="Sua resposta"
+                    [value]="answer()" (input)="editAnswer($any($event.target).value)"></textarea>
+          <div class="acts">
+            <button type="button" class="tbtn primary" (click)="check()" [disabled]="!answer().trim()">Conferir</button>
+            <button type="button" class="tbtn" (click)="showSolution.set(!showSolution())" [attr.aria-expanded]="showSolution()">
+              {{ showSolution() ? 'Esconder resolução' : 'Mostrar resolução' }}</button>
+          </div>
+
+          <div aria-live="polite">
+            @if (report(); as rep) {
+              <div class="verdict" [attr.data-v]="rep.verdict">
+                {{ verdictLabel(rep) }}
+              </div>
+              @for (pr of rep.parseProblems; track $index) {
+                <div class="msg err">@if (pr.line) { <b class="mono">linha {{ pr.line }}</b> } {{ pr.message }}</div>
+              }
+              @for (note of rep.notes; track $index) { <div class="msg warn">{{ note }}</div> }
+              @if (!rep.parseProblems.length) {
+                <span class="lab mono">Forma · {{ info().label }}</span>
+                @if (rep.formOk && !rep.issues.length) { <div class="msg ok">Forma válida.</div> }
+                @for (i of rep.issues; track $index) { <div class="msg" [class.err]="i.severity === 'erro'" [class.warn]="i.severity === 'aviso'">{{ i.message }}</div> }
+                @if (rep.language; as lg) {
+                  <span class="lab mono">Linguagem</span>
+                  @switch (lg.status) {
+                    @case ('equivalente') { <div class="msg ok">Equivalente à gramática original até n = {{ lg.maxLen }} ({{ lg.count }} palavra(s)).</div> }
+                    @case ('diverge') {
+                      <div class="msg err"><b>Não equivalente até n = {{ lg.maxLen }}.</b>
+                        @if (lg.onlyOriginal.length) { <div>Só a original gera: <span class="mono">{{ words(lg.onlyOriginal) }}</span></div> }
+                        @if (lg.onlyAnswer.length) { <div>Só a sua resposta gera: <span class="mono">{{ words(lg.onlyAnswer) }}</span></div> }
+                      </div>
+                    }
+                    @case ('incompleto') { <div class="msg warn">Amostra incompleta: o teto de palavras foi atingido. Diminua n.</div> }
+                  }
+                  @for (nt of lg.notes; track $index) { <div class="msg warn">{{ nt }}</div> }
+                }
+                @if (comparisonText(); as ct) { <p class="hint">{{ ct }}</p> }
+              }
+            }
+          </div>
+        </section>
+      }
+
+      @if (!treino() || showSolution()) {
       @if (run().r; as r) {
         <div aria-live="polite">
           @for (w of r.warnings; track $index) { <div class="msg warn">{{ w }}</div> }
@@ -170,6 +222,7 @@
             </tbody>
           </table>
         </section>
+      }
       }
     </main>
   </div>
